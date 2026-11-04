@@ -89,7 +89,7 @@ Then:
 
 ## 4. Save
 
-1. Write `system-design/sessions/YYYY-MM-DD-<problem-slug>.md` containing: problem, level, a condensed summary of the candidate's design (requirements, entities, API, HLD, deep dives), the full scorecard, reference sketch, improvements, and concepts to drill.
+1. Write `system-design/sessions/YYYY-MM-DD-<problem-slug>.md` containing: problem, level, a condensed summary of the candidate's design (requirements, entities, API, HLD, deep dives), the full scorecard, a Questions section (each probing interviewer question or deep-dive challenge, a 1–2 line summary of what they said, and a 3–5 sentence strong answer), reference sketch, improvements, and concepts to drill.
 2. Append a row to the Mock Interviews table in `system-design/progress.md`. Overall is the signal, Weakest area is the lowest dimension, File is the session filename.
 3. For each concept flagged to drill that is already in the Concepts table, set its "Next review" to today so `/sd-drill review` picks it up. For flagged concepts not yet in the table, mention that they should `/sd-pretest` them.
 

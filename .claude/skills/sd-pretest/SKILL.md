@@ -51,6 +51,10 @@ After the last question, give:
 1. Write `system-design/notes/<slug>.md` (create, or append a dated section if it exists):
    ```
    ## Pretest: YYYY-MM-DD (score NN%)
+   ### Questions
+   **Q1 ✅/🟡/❌**: <question, as asked>
+   - You said: <1–2 line condensed summary of their answer>
+   - Strong answer: <3–5 sentence model answer, written the way a candidate would say it>
    ### Gaps
    - ...
    ### Partial

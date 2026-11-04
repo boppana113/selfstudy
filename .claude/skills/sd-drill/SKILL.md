@@ -66,11 +66,17 @@ For `review` mode, score and schedule each concept separately.
 1. Append to `system-design/notes/<slug>.md`:
    ```
    ## Drill: YYYY-MM-DD (score NN%)
+   ### Questions
+   **R1 (<format>) ✅/🟡/❌**: <question, as asked>
+   - Follow-up: <follow-up, if asked>
+   - You said: <1–2 line condensed summary of their answer, including follow-up>
+   - Strong answer: <3–5 sentence model answer, written the way a candidate would say it, covering the teach bullets>
    ### Still weak
    - ...
    ### Interview-ready lines
    - ...
    ```
+   Include every round in Questions, in order. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
    Also remove items from the "Gaps" lists of earlier sections that are now clearly solid, or mark them ✅.
 2. Update the row in `system-design/progress.md`: status, last drill date, drill score, next review, and refreshed key gaps.
 3. Every 4th concept marked `drilled` or `solid`, suggest a `/sd-mock` problem from Phase 4 or 7 that exercises those concepts.
