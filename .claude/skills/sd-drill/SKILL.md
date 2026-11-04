@@ -22,6 +22,8 @@ If drilling a single topic, ask the user: "Did you finish the Hello Interview ma
 
 Unless the arguments include `typed`, read `system-design/spoken-mode.md` and follow it for the whole session: question phrasing, a 🗣️ delivery line after each grade, the Delivery section in the results, and saving.
 
+**Warm-up (spoken mode only):** before the first question, show one "Rewrite" from a `### Delivery` section in `system-design/notes/`. Prefer one from the topic being drilled; otherwise pick the one shown least recently. Ask the user to read it aloud once, for rhythm. Don't grade it. Then start round 1.
+
 ## 2. Run the drill (about 6 rounds)
 
 Ask **one question at a time**. Prioritize, in this order:
@@ -39,10 +41,21 @@ Rotate through these formats. Use at least 4 different ones per drill:
 - **Explain it to the interviewer**: "Explain <mechanism> in 60 seconds, like you would on a whiteboard."
 - **Failure mode**: "Node X dies / network partitions / cache goes cold. What happens, and how does your design recover?"
 
+**Answer frames** (used by the reminders below and by the re-answer step):
+- Estimation: "Assuming ___, the formula is ___, so ___ × ___ is ___, which means ___ for the design."
+- Failure mode: "Step one, ___ happens. That causes ___. So the user sees ___. To fix it, I'd ___."
+- Design choice: "I'd pick X because ___. The cost is ___. I'd switch to Y if ___."
+- Unsure: "I don't know this exactly, so let me reason from what I do know: ___."
+
+**Frame reminders:** on about 1 in 3 rounds, chosen at random and never round 1, put a one-line reminder in italics above the question, using the frame that fits the format. Estimation and scale it up use the estimation frame; tradeoff duel and scenario use design choice; failure mode, spot the flaw, and explain it use failure mode. For example: *(Frame: step one → consequence → what the user sees → fix)*. Don't say which rounds will get one.
+
+Reminders fade as the habit sticks. Find the most recent `Frame reminders:` line in any notes file. If it says `re-answers: 0`, skip reminders this session. Otherwise, or if there isn't one yet, use them.
+
 After each answer:
 1. Ask **one follow-up** probing the weakest part of the answer (the "why?" or "what if?" a real interviewer would ask). Skip it only if the answer was complete.
 2. Then grade it: ✅ / 🟡 / ❌ (scored 2 / 1 / 0, follow-up included).
 3. Then **teach**: 3–6 bullet points on what a strong senior-level answer covers, including any interview phrasing that would score well. Correct misconceptions directly.
+4. **Re-answer if they gave only the conclusion.** Do this if the answer jumped to a number or fix without the setup, skipped the consequence before the fix, or stopped at "I'm not sure". Show the matching answer frame (above) and ask them to say the answer again using it, right away. Reply in one line: did the reasoning come through? The re-answer doesn't change the grade. Do at most one re-answer per round, and then move on.
 
 ## 3. Results and spaced repetition
 
@@ -76,7 +89,7 @@ For `review` mode, score and schedule each concept separately.
    ### Interview-ready lines
    - ...
    ```
-   Include every round in Questions, in order. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
+   Include every round in Questions, in order. If a round had a re-answer, add `- Re-answer: <one line on whether the reasoning came through>` after "You said". In the `### Delivery` subsection (or a new one in `typed` mode), add `- Frame reminders: on|off (re-answers: N)`, where N is the number of rounds that needed a re-answer. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
    Also remove items from the "Gaps" lists of earlier sections that are now clearly solid, or mark them ✅.
 2. Update the row in `system-design/progress.md`: status, last drill date, drill score, next review, and refreshed key gaps.
 3. Every 4th concept marked `drilled` or `solid`, suggest a `/sd-mock` problem from Phase 4 or 7 that exercises those concepts.
