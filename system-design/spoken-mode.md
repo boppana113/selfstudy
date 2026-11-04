@@ -5,7 +5,7 @@ Shared rules for `/sd-pretest`, `/sd-drill`, and `/sd-mock`. Spoken mode is **on
 The user answers by voice dictation and sends the transcript unedited. The goal is to practice *saying* answers the way they would in a real interview, not writing them.
 
 ## At the start of the session
-Say this once, briefly: "Spoken mode: answer by dictation (mic key or Fn twice) and send it without editing. Messy is fine. That's the point."
+Say this once, briefly: "Spoken mode: answer by dictation (hold right ⌘ for Superwhisper) and send it without editing. Messy is fine. That's the point."
 
 ## How to ask questions
 - Phrase every question the way an interviewer would *say* it: short, conversational, and with at most two parts. No tables, bullet lists, or code blocks in a question.
