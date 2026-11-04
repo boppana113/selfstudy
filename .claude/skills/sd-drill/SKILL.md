@@ -15,7 +15,7 @@ Arguments: `$ARGUMENTS`
 Read `system-design/curriculum.md`, `system-design/progress.md`, and `system-design/notes/<slug>.md` if it exists.
 
 - **Slug given**: drill that topic.
-- **`review`**: collect every concept whose "Next review" date is today or earlier. Run a mixed review of **2 questions per due concept** (cap at 5 concepts, most overdue first). If nothing is due, say so and offer the topic with the lowest drill score.
+- **`review`**: collect every concept whose "Next review" date is today or earlier. Run a mixed review of **2 questions per due concept**, capped at **1 concept per session** (most overdue first). Tell the user which other concepts are still due; they move to the next day, which keeps reviews to about 10 minutes a day. If nothing is due, say so and offer the topic with the lowest drill score.
 - **No argument**: if any reviews are due, do `review`. Otherwise drill the most recent concept with status `pretested` or `studied`. If there isn't one, suggest `/sd-pretest`.
 
 If drilling a single topic, ask the user: "Did you finish the Hello Interview material for this?" If yes, set its status to `studied` before starting.

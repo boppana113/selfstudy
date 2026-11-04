@@ -9,6 +9,8 @@
                      every ~4 topics: /sd-mock <problem>
 ```
 
+**Rule: one new concept at a time.** Don't pretest the next concept until the current one has been drilled (≥ 50%). Each day is one review (~10 min, most overdue first; the rest wait a day) plus work on the single current concept.
+
 ## Suggested pacing: ML / AI engineering track (~8–10 weeks at ~1 hr/day)
 
 This is the active track. It follows the "Study order" in `curriculum.md`.

@@ -13,6 +13,7 @@ Arguments: `$ARGUMENTS`
 ## 1. Pick the topic
 
 1. Read `system-design/curriculum.md` and `system-design/progress.md` (relative to the project root).
+   - **One new concept at a time.** If any concept has status `pretested`, or has status `studied` with a drill score below 50%, it's still in progress. Tell the user which one it is and suggest finishing it (study it, then `/sd-drill <slug>`) before starting another. Go ahead only if they confirm.
 2. If an argument was given, match it to a slug (fuzzy match is fine: "consistent hash" → `consistent-hashing`). If it matches a Phase 4 or Phase 7 problem, tell the user to use `/sd-mock` instead and stop.
 3. With no argument, pick the first concept that isn't in the progress table yet. Follow the curriculum's "Study order" section if it has one; otherwise use curriculum order (Phases 0–3, 5, 6).
 4. Tell the user which topic you're testing and that it takes about 8 questions. Ask them to answer from memory, with no looking things up, and remind them that "I don't know" is a useful answer.
