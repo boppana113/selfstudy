@@ -15,7 +15,7 @@ The skills follow this order when no topic is given. ML and AI loops usually inc
 3. `problem-framing-metrics`, `training-data`, `feature-engineering`, `embeddings-retrieval`
 4. `llm-fundamentals`, `prompting-structured-output`, `rag`, `vector-databases`, `llm-evaluation`
 5. `recsys-ranking`, `model-architectures`, `ml-serving`, `ab-testing`, `ml-monitoring`
-6. `agents-tool-use`, `llm-serving-inference`, `llm-safety-guardrails`, `llm-cost-reliability`, `fine-tuning`, `training-infra`
+6. `agents-tool-use`, `agent-tuning`, `llm-serving-inference`, `llm-safety-guardrails`, `llm-cost-reliability`, `fine-tuning`, `training-infra`
 7. `kafka`, `redis`, `blob-storage`, `stream-processing`, `sharding`, `db-indexing`, `scaling-reads`, `long-running-tasks`
 8. Everything else in Phases 1–3, as time allows
 
@@ -353,6 +353,14 @@ Ordered roughly by difficulty. Run a mock *before* reading the breakdown, then r
 - Failure modes: loops, runaway cost, compounding errors; step and budget limits
 - Human-in-the-loop approvals, sandboxing code execution, least-privilege tool access
 
+### `agent-tuning`: Evaluating & Tuning Agent Behavior
+- Evaluating the trajectory vs only the final answer: tool-call accuracy, wasted steps, task success rate
+- Building agent eval sets from real failures; replaying recorded runs; sandboxed environments for tools with side effects
+- Error analysis: reading failed runs, grouping failures by cause (wrong tool, bad arguments, gave up early, looped)
+- Improving behavior without retraining: system prompt changes, tool names and descriptions, tool error messages the model can act on, few-shot examples
+- Measuring a change: running evals before and after, variance across runs (one run proves nothing), cost and latency per task
+- When prompting isn't enough: splitting into sub-agents, adding a planning step, or fine-tuning on good trajectories
+
 ### `llm-evaluation`: LLM Evaluation
 - Golden datasets and how to build and maintain them
 - LLM-as-judge: rubrics, pairwise vs pointwise, judge bias, calibrating against human labels
@@ -378,6 +386,8 @@ Ordered roughly by difficulty. Run a mock *before* reading the breakdown, then r
 - Input and output filtering, moderation classifiers, PII detection and redaction
 - Reducing hallucination: grounding, citations, abstaining ("I don't know")
 - Abuse prevention: rate limits, quotas, jailbreak monitoring
+- Agent-specific risk: limiting the damage when an injection reaches a tool with write access (least privilege, confirmation for irreversible actions, output channels the attacker can't read)
+- Red-teaming and safety evals: adversarial test sets, attack success rate, running them as regression tests
 
 ### `llm-cost-reliability`: Cost, Reliability & Observability
 - Estimating token cost per request and per user
