@@ -30,6 +30,18 @@ A: The heartbeat stops, the timeout expires, and the message reappears. Worker B
 Q: Two workers both finish the same job. What makes sure only one email goes out?
 A: A conditional status update: UPDATE ... SET status='completed' WHERE status='processing'. Only the worker that gets 1 row affected sends the email. S3 won't block the second upload; it's a harmless overwrite of the same key.
 
+Q: Why isn't "read the status, then write completed, inside a transaction" enough to send exactly one email?
+A: At the default READ COMMITTED isolation both workers can read 'processing' and both write, so both send. Use one atomic conditional UPDATE ... WHERE status='processing' and act only on 1 row affected.
+Staff: Close the commit-then-send gap with an outbox row in the same transaction or an idempotency key (job_id) on the email provider.
+
+## SQS vs Kafka for jobs
+Q: Kafka partition: job 100 takes 20 min, 101–110 take 2 min. What happens to offsets, and on a crash at minute 15?
+A: The offset can't advance past 100, so 101–110 stay uncommitted even when done. A crash replays everything after the last commit: 100 through 110.
+
+Q: Why does Kafka cap parallelism for a job queue?
+A: Each partition is read by exactly one consumer per group, so max concurrency equals the partition count. 2,400 concurrent jobs would need about 2,400 partitions.
+Staff: A consumer that doesn't poll within max.poll.interval.ms (default 5 min) is kicked from the group, triggering a rebalance and duplicates.
+
 ## Scaling & alerting
 Q: What do you autoscale job workers on?
 A: Backlog per worker, with separate scale-out and scale-in thresholds and a cooldown so it doesn't flap. On scale-in, protect busy workers or let them drain.
@@ -39,3 +51,10 @@ A: Age of the oldest message, tied to the SLA. It's the unluckiest user's wait, 
 
 Q: 5 jobs per second, 8-minute average duration. How many workers?
 A: Little's Law: rate × duration. 5/s × 480 s = 2,400 jobs in flight, so 2,400 busy workers, about 3,000 with headroom.
+
+Q: Workers hang on a poison video but keep heartbeating. How do you stop them holding leases forever?
+A: Cap job runtime (e.g. 3× p99); a timeout counts as a failed attempt so the job ends up in the DLQ. Alarm on runtime > p99 and DLQ depth.
+Staff: Heartbeat with progress (frames done), not just liveness, so a stuck process with a live heartbeat thread is caught.
+
+Q: Why page on age of the oldest message instead of average wait?
+A: The average hides the tail because healthy workers pull it down; the oldest message is the worst wait a user feels right now and maps to the SLA.

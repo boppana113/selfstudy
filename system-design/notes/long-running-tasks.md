@@ -6,7 +6,7 @@
 - ✅ (2026-11-03) Heartbeats = extending visibility timeout + writing last_heartbeat to jobs table; didn't name the consequence of timeout < job duration (duplicate processing, duplicate emails)
 - Idempotency under at-least-once: partial completion (check each output / manifest), deterministic output keys, conditional status update gating notifications, ack last
 - ✅ (2026-11-03) Misconception: thought the queue checks the DB before reassigning; SQS knows nothing about the jobs table
-- 🟡 (2026-11-04, kafka drill: offset watermark/HOL + crash replay correct after hint; partition cap still not volunteered) SQS vs Kafka for jobs: no knowledge of Kafka offsets/partitions, head-of-line blocking, partition-capped parallelism
+- 🟡 (2026-11-04 LRT drill: HOL unprompted, replay + partition cap after follow-up; 2026-11-04, kafka drill: offset watermark/HOL + crash replay correct after hint; partition cap still not volunteered) SQS vs Kafka for jobs: no knowledge of Kafka offsets/partitions, head-of-line blocking, partition-capped parallelism
 - 🟡 (2026-11-03: scaling metric fixed, alarm still wrong) Autoscaling: said raw queue depth; better is backlog per worker + age of oldest message
 - ✅ (2026-11-03) Lambda 15-min limit vs 10-min jobs not considered
 - Estimation: jumped to a number without math (fixed when prompted, Little's Law); poll-load math wrong (should be 1,667/30 ≈ 55 QPS)
@@ -74,7 +74,7 @@
 - Gating the notification: thought S3 would block the second worker's upload. It won't; use a conditional status update (`WHERE status='processing'`, 1 row affected → send email), deterministic keys, skip finished renditions, delete last
 - Kafka for jobs (2nd miss): offset commit per partition → head-of-line blocking, parallelism capped at partition count, `max.poll.interval.ms` rebalance → duplicates, no per-message retry/DLQ. Right conclusion, wrong reason ("ops overhead")
 - Alarm metric: said total queue size; should be age of oldest message (tied to SLA). Also didn't mention scale-in hysteresis and draining or protecting in-flight 20-min jobs
-- Estimation (2nd miss): dropped duration from Little's Law (said 5 workers for 5/s × 8 min). Fixed after the hint: 2,400 in flight, ~3,000 with headroom
+- ✅ (2026-11-04: duration included unprompted) Estimation (2nd miss): dropped duration from Little's Law (said 5 workers for 5/s × 8 min). Fixed after the hint: 2,400 in flight, ~3,000 with headroom
 - Didn't name the consequence before the fix: delete-on-receive = job silently lost; lease < duration = duplicate work and healthy jobs ending up in the DLQ
 ### Now solid
 - Lease plus heartbeat, and the tradeoff of a long fixed timeout (slow failure detection)
@@ -102,3 +102,50 @@ Prompt: "A video takes 10 minutes to transcode. Why not do it inside the upload 
 - Better: consequence before the fix (timeout → false negative), narrated in steps ("first... then...").
 - Still weak: the fix stopped at the presigned upload twice (upload and processing are separate problems); answered the worker side instead of the question asked (what the API returns, how the user learns it's done); "provision a job" → workers pull; "liveness check-in" → "extends the visibility timeout as a heartbeat".
 - Rewrite: "If we transcode inside the upload request, it times out at the gateway after about 30 seconds. The work might still finish, so the user sees a failure that's actually a false negative, and when they retry, we transcode twice. So I'd make it async. The client uploads straight to S3 with a presigned URL, then calls POST /jobs. The API writes a job row as pending, puts the job ID on SQS, and returns the ID right away. A worker pulls the message, marks the job in progress, and extends the visibility timeout as a heartbeat while it transcodes. When it's done, it marks the job complete and deletes the message. The client polls a status endpoint with the job ID, and we email them in case they closed the tab."
+
+## Drill: 2026-11-04 (score 50%; Below mid 0 · Mid 4 · Senior 0 · Staff 0)
+Short drill: 4 rounds, one per hold-in-mind question.
+### Questions
+**R1 (Estimation) 🟦 Mid**: 5 transcode jobs per second at peak, 8-minute average, one job per worker. How many workers at peak, and how many would you provision?
+- Follow-up: 5/s is already the peak, so what did the formula give before doubling, and what's the headroom for?
+- You said: Little's Law, 5 × 8 × 60, then doubled for peak → 4,800. Follow-up: 2,400 before doubling, +50% → "3,200" (arithmetic slip; it's 3,600).
+- Re-answer: Reasoning came through (assumption → formula → buffer reason → 3,600); still skipped saying 2,400 before adding the buffer.
+- Strong answer: "Little's Law: 5 per second times 480 seconds is 2,400 jobs in flight, so 2,400 busy workers at peak. I'd add about 25% for long-tail jobs, retries and scale-up lag, so roughly 3,000. At that size I'd look at spot instances, which is safe because retries are idempotent."
+- Staff adds: spot/GPU cost lever; choose p50 vs p95 duration in the formula based on the tail.
+
+**R2 (Failure mode) 🟦 Mid**: A worker GC-pauses, its lease expires, and a second worker takes the same job. Both finish. What exactly makes sure only one email goes out?
+- Follow-up: Both finish in the same millisecond and both read "processing". What DB operation makes only one win, and how does the winner know to send the email?
+- You said: Timeline right; the loser checks the output and can't update the DB because it's already completed. Follow-up: an ACID transaction processes one at a time, the worker checks the in-progress → completed transition, and the winner sends the email.
+- Strong answer: "One email is guaranteed by a conditional update: UPDATE jobs SET status='completed' WHERE id=? AND status='processing'. The database applies it atomically, so exactly one worker gets 1 row affected. That one sends the email, and the other gets 0 and exits. Read-then-write inside a transaction isn't enough at READ COMMITTED, because both can read 'processing'. Outputs use deterministic keys, so the duplicate upload is a harmless overwrite."
+- Staff adds: commit-then-send gap (crash after commit = no email) → outbox row in the same transaction or a provider idempotency key on job_id.
+
+**R3 (Tradeoff duel) 🟦 Mid**: Team wants transcode jobs on Kafka. Job 100 takes 20 min, 101–110 take 2 min. What happens to offsets, and on a crash at minute 15?
+- Follow-up: On restart, is only job 100 reprocessed? And what does 2,400 concurrent jobs force on you?
+- You said: Can't commit 101–110 until 100 finishes; on crash, job 100 is reprocessed; consumers for 101–110 sit idle; recommended SQS for mixed durations. Follow-up: 100–110 all get replayed; you need more partitions.
+- Strong answer: "Kafka commits one offset per partition, so a 20-minute job blocks the commits behind it, and a crash replays everything after the last commit: 100 through 110. Each partition is read by exactly one consumer per group, so parallelism is capped at the partition count, and 2,400 concurrent jobs means about 2,400 partitions. A slow consumer also trips max.poll.interval.ms and causes a rebalance and duplicates. Long independent jobs want per-message leases and acks, so SQS."
+- Staff adds: Kafka as intake log with a bridge to SQS/jobs table; KIP-932 share groups.
+
+**R4 (Failure mode) 🟦 Mid**: 50 workers, 10 hung on a poison video, backlog per worker looks normal, jobs wait an hour. What pages you, and why isn't queue size enough?
+- Follow-up: Why average rather than oldest? If hung workers keep heartbeating, does retries-per-job ever fire?
+- You said: Average job wait time plus retries per job; queue size isn't enough because the other 40 still drain. Follow-up: switched to oldest-job wait; for heartbeating hung workers, watch processing time per worker.
+- Strong answer: "I page on age of the oldest message, because that's the worst wait a user is feeling right now and maps to the SLA. An average hides the tail. Depth doesn't show throughput: 10 of 50 hung is 20% less capacity, so wait grows while depth per worker looks fine. To stop hung jobs from holding leases forever, I cap runtime at about 3× p99 and count a timeout as a failed attempt, so poison videos land in the DLQ, and I alarm on DLQ depth."
+- Staff adds: progress-based heartbeats (frames done, not just alive); quarantine poison inputs.
+### Gap to senior
+- Gating the notification: single conditional UPDATE + rows affected = 1, not "ACID transaction" / read-then-write
+- Kafka specifics: one consumer per partition per group; parallelism = partition count (~2,400); max.poll.interval.ms rebalance
+- Paging: lead with age of oldest message + why (worst-case wait = SLA); max-runtime cap for hung-but-heartbeating workers
+- Estimation: don't double an already-peak rate; say the intermediate number; do the headroom arithmetic out loud
+### Staff stretch
+- Outbox / email idempotency key for the commit-then-send gap
+- Kafka intake log → bridge to queue; KIP-932 share groups
+- Progress heartbeats; spot instances because retries are idempotent
+### Interview-ready lines
+- "Completion is a conditional update, set completed where status is processing. The worker that gets one row back sends the email."
+- "Each partition has one consumer per group, so parallelism equals the partition count: 2,400 jobs means 2,400 partitions. That's why long jobs go on SQS."
+- "I page on age of the oldest message, because that's the worst wait a user feels, and I cap job runtime so hung workers fail over to the DLQ."
+- "5 per second times 480 seconds is 2,400 in flight, plus 25% headroom, so about 3,000."
+### Delivery
+- Habit: vague words where the specific mechanism belongs ("ACID transaction to ensure only one is processed", "add more partitions", "job wait time on average"). Structure improved: timelines narrated in order, method stated first in R1/R3.
+- Rewrite (R2): "One email is guaranteed by a conditional update. Here's the timeline. Worker A pauses in GC, its lease expires, and the message reappears. Worker B picks it up and transcodes. Outputs go to deterministic keys, so if A wakes up and uploads too, it's just an overwrite. When each one finishes, it runs update jobs set completed where id is the job and status is processing. The database applies that atomically, so exactly one gets one row back. That worker sends the email, and the other gets zero rows and exits quietly. Then the message is deleted last."
+- Did well: opened R1 and R3 with the method/conclusion; R1 re-answer used the whole frame.
+- Frame reminders: on (re-answers: 1)
