@@ -17,12 +17,22 @@ A: L4 balances connections (TCP); L7 balances requests (HTTP), so it can route b
 Q: Why does an L4 load balancer in front of gRPC leave new instances idle after a scale-out?
 A: gRPC multiplexes requests over long-lived HTTP/2 connections, and L4 only balances when a connection opens. Existing connections stay pinned to the old backends. Use L7 or client-side balancing.
 
+Q: What's the cost of fixing gRPC imbalance with an L7 balancer, and what's the cheap alternative?
+A: L7 has to terminate TLS and parse HTTP/2, so it adds CPU and latency. The cheap mitigation is a server-side max connection age, which forces clients to reconnect every few minutes so load rebalances.
+Staff: Alert on per-instance request rate, not connection count, to catch this.
+
 ## Timeouts & retries
 Q: A provider slows down for 30 seconds, and 200 servers retry 5× immediately. What happens?
 A: Each request becomes up to 6 attempts, so load on an already struggling provider multiplies about 6×. That's a retry storm.
 
 Q: What four things prevent a retry storm?
 A: Explicit timeouts, exponential backoff with jitter, a retry budget (cap retries as a fraction of traffic), and a circuit breaker so you fail fast instead of piling on. Add an idempotency key so retries are safe.
+
+Q: Jitter spreads retries out. Why isn't it enough on its own?
+A: Total load is still up to 6× with 5 retries; jitter only smooths the timing. A retry budget caps retries as a fraction of traffic, and a circuit breaker stops calls entirely once the error rate crosses a threshold.
+
+Q: How does an idempotency key prevent a double charge on retry?
+A: Generate one key per checkout and send the same key on every retry. The provider dedupes on it and returns the original result instead of charging again.
 
 ## APIs
 Q: Where does userId belong in an API request?
