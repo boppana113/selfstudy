@@ -6,7 +6,7 @@
 - ✅ (2026-11-03) Heartbeats = extending visibility timeout + writing last_heartbeat to jobs table; didn't name the consequence of timeout < job duration (duplicate processing, duplicate emails)
 - Idempotency under at-least-once: partial completion (check each output / manifest), deterministic output keys, conditional status update gating notifications, ack last
 - ✅ (2026-11-03) Misconception: thought the queue checks the DB before reassigning; SQS knows nothing about the jobs table
-- SQS vs Kafka for jobs: no knowledge of Kafka offsets/partitions, head-of-line blocking, partition-capped parallelism
+- 🟡 (2026-11-04, kafka drill: offset watermark/HOL + crash replay correct after hint; partition cap still not volunteered) SQS vs Kafka for jobs: no knowledge of Kafka offsets/partitions, head-of-line blocking, partition-capped parallelism
 - 🟡 (2026-11-03: scaling metric fixed, alarm still wrong) Autoscaling: said raw queue depth; better is backlog per worker + age of oldest message
 - ✅ (2026-11-03) Lambda 15-min limit vs 10-min jobs not considered
 - Estimation: jumped to a number without math (fixed when prompted, Little's Law); poll-load math wrong (should be 1,667/30 ≈ 55 QPS)
