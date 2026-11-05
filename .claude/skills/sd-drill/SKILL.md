@@ -22,6 +22,8 @@ If drilling a single topic, ask the user: "Did you finish the Hello Interview ma
 
 Unless the arguments include `typed`, read `system-design/spoken-mode.md` and follow it for the whole session: question phrasing, a 🗣️ delivery line after each grade, the Delivery section in the results, and saving.
 
+Read `system-design/levels.md`. It defines the per-round grade, the points, and the triage ladder used below.
+
 **Warm-up (spoken mode only):** before the first question, show one "Rewrite" from a `### Delivery` section in `system-design/notes/`. Prefer one from the topic being drilled; otherwise pick the one shown least recently. Ask the user to read it aloud once, for rhythm. Don't grade it. Then start round 1.
 
 ## 2. Run the drill (about 6 rounds)
@@ -53,13 +55,18 @@ Reminders fade as the habit sticks. Find the most recent `Frame reminders:` line
 
 After each answer:
 1. Ask **one follow-up** probing the weakest part of the answer (the "why?" or "what if?" a real interviewer would ask). Skip it only if the answer was complete.
-2. Then grade it: ✅ / 🟡 / ❌ (scored 2 / 1 / 0, follow-up included).
-3. Then **teach**: 3–6 bullet points on what a strong senior-level answer covers, including any interview phrasing that would score well. Correct misconceptions directly.
+2. Then grade it by level reached: ⬜ Below mid / 🟦 Mid / 🟩 Senior / 🟪 Staff (follow-up included; bars and points in `levels.md`).
+3. Then **teach** with the triage ladder from `levels.md`: what they had, what's missing for senior, and staff stretch items. Correct misconceptions directly. End with one **interview phrasing** line, a senior-level answer they could say.
 4. **Re-answer if they gave only the conclusion.** Do this if the answer jumped to a number or fix without the setup, skipped the consequence before the fix, or stopped at "I'm not sure". Show the matching answer frame (above) and ask them to say the answer again using it, right away. Reply in one line: did the reasoning come through? The re-answer doesn't change the grade. Do at most one re-answer per round, and then move on.
 
 ## 3. Results and spaced repetition
 
-Give a score (%), a short list of **what's now solid** and **what still needs work**, and one "interview-ready sentence" per weak point: a crisp line they could say in an interview.
+Give:
+1. The **score** (%, using the points in `levels.md`) and the **level breakdown** (e.g. `Below mid 1 · Mid 5 · Senior 0 · Staff 0`).
+2. **Gap to senior**: the actionable list, most important first. Below-mid items come first, because they block everything above them.
+3. **Staff stretch**: a short, optional list.
+4. **What's now solid**.
+5. One "interview-ready sentence" per gap-to-senior item: a crisp line they could say in an interview.
 
 Set the next review date from the score and how many times the concept has been drilled:
 
@@ -78,20 +85,23 @@ For `review` mode, score and schedule each concept separately.
 
 1. Append to `system-design/notes/<slug>.md`:
    ```
-   ## Drill: YYYY-MM-DD (score NN%)
+   ## Drill: YYYY-MM-DD (score NN%; Below mid N · Mid N · Senior N · Staff N)
    ### Questions
-   **R1 (<format>) ✅/🟡/❌**: <question, as asked>
+   **R1 (<format>) ⬜/🟦/🟩/🟪 <level>**: <question, as asked>
    - Follow-up: <follow-up, if asked>
    - You said: <1–2 line condensed summary of their answer, including follow-up>
-   - Strong answer: <3–5 sentence model answer, written the way a candidate would say it, covering the teach bullets>
-   ### Still weak
+   - Strong answer: <3–5 sentence model answer at senior level, written the way a candidate would say it>
+   - Staff adds: <one line, the staff stretch items>
+   ### Gap to senior
+   - ...
+   ### Staff stretch
    - ...
    ### Interview-ready lines
    - ...
    ```
    Include every round in Questions, in order. If a round had a re-answer, add `- Re-answer: <one line on whether the reasoning came through>` after "You said". In the `### Delivery` subsection (or a new one in `typed` mode), add `- Frame reminders: on|off (re-answers: N)`, where N is the number of rounds that needed a re-answer. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
    Also remove items from the "Gaps" lists of earlier sections that are now clearly solid, or mark them ✅.
-2. Update the row in `system-design/progress.md`: status, last drill date, drill score, next review, and refreshed key gaps.
+2. Update the row in `system-design/progress.md`: status, last drill date, drill score, next review, and refreshed key gaps (from the gap-to-senior list).
 3. Every 4th concept marked `drilled` or `solid`, suggest a `/sd-mock` problem from Phase 4 or 7 that exercises those concepts.
 
 ## Rules

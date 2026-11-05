@@ -31,17 +31,17 @@ Mix these question types:
 
 Adapt: if they nail a question, make the next one harder on a different point. If they miss one, move to a different point rather than drilling the same hole.
 
-After each answer, give **one line only**: ✅ solid / 🟡 partial / ❌ missed / ⏭️ didn't know, plus at most a few words of why. **Do not explain the correct answer yet.** Holding the explanation keeps the reading productive. Then ask the next question.
+After each answer, give **one line only**: the level reached from `system-design/levels.md` (⬜ Below mid / 🟦 Mid / 🟩 Senior / 🟪 Staff, or ⏭️ didn't know, which counts as below mid), plus at most a few words of why. **Do not explain the correct answer yet.** Holding the explanation keeps the reading productive. Then ask the next question.
 
-Score each answer: 2 = solid, 1 = partial, 0 = missed or didn't know.
+Score each answer using the points in `levels.md`.
 
 ## 3. Results
 
 After the last question, give:
 
-1. **Score**: X/16 (as a percentage too).
-2. **Knowledge map**: a table of each testable point with ✅ / 🟡 / ❌ / (not tested).
-3. **Brief answers**: one or two sentences per question showing what a strong answer included, for the ones they missed or got partially.
+1. **Score**: X/16 (as a percentage too) and the **level breakdown** (e.g. `Below mid 2 · Mid 4 · Senior 2 · Staff 0`).
+2. **Knowledge map**: a table of each testable point with the level reached, or (not tested).
+3. **Brief answers**: for each question below senior, a short triage ladder (format in `levels.md`): what was missing for mid, for senior, and one staff stretch item.
 4. **Reading guide for Hello Interview**: 3–5 specific things to pay close attention to in the article or video, ordered by gap size. Point them to concepts, not page numbers (you don't know the article's exact text).
 5. **Hold-in-mind questions**: 2–3 questions to answer *while* reading. They'll be asked again in `/sd-drill`.
 6. If they scored ≥ 85%, say they can skim the article and go straight to `/sd-drill <slug>`.
@@ -50,14 +50,14 @@ After the last question, give:
 
 1. Write `system-design/notes/<slug>.md` (create, or append a dated section if it exists):
    ```
-   ## Pretest: YYYY-MM-DD (score NN%)
+   ## Pretest: YYYY-MM-DD (score NN%; Below mid N · Mid N · Senior N · Staff N)
    ### Questions
-   **Q1 ✅/🟡/❌**: <question, as asked>
+   **Q1 ⬜/🟦/🟩/🟪 <level>**: <question, as asked>
    - You said: <1–2 line condensed summary of their answer>
    - Strong answer: <3–5 sentence model answer, written the way a candidate would say it>
-   ### Gaps
+   ### Gap to mid
    - ...
-   ### Partial
+   ### Gap to senior
    - ...
    ### Hold-in-mind questions
    - ...

@@ -43,5 +43,6 @@ Daily: start each session with `/sd-drill review` if anything is due (5–10 min
 ## Files
 - `curriculum.md`: topics and the testable points each skill quizzes on
 - `progress.md`: status, scores, review schedule, mock history
+- `levels.md`: per-answer grade by level (below mid / mid / senior / staff), used by drills and pretests
 - `notes/<topic>.md`: gaps and interview-ready lines per topic
 - `sessions/`: mock interview transcripts and scorecards
