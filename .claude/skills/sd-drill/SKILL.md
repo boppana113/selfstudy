@@ -51,7 +51,7 @@ Rotate through these formats. Use at least 4 different ones per drill:
 
 **Frame reminders:** on about 1 in 3 rounds, chosen at random and never round 1, put a one-line reminder in italics above the question, using the frame that fits the format. Estimation and scale it up use the estimation frame; tradeoff duel and scenario use design choice; failure mode, spot the flaw, and explain it use failure mode. For example: *(Frame: step one → consequence → what the user sees → fix)*. Don't say which rounds will get one.
 
-Reminders fade as the habit sticks. Find the most recent `Frame reminders:` line in any notes file. If it says `re-answers: 0`, skip reminders this session. Otherwise, or if there isn't one yet, use them.
+Reminders fade as the habit sticks. Skip reminders this session if either is true: the most recent `Frame reminders:` line in any notes file says `re-answers: 0`, or the last two `## Speak:` sessions in `system-design/delivery-log.md` both scored structure ≥ 80%. Otherwise use them.
 
 After each answer:
 1. Ask **one follow-up** probing the weakest part of the answer (the "why?" or "what if?" a real interviewer would ask). Skip it only if the answer was complete.
@@ -102,7 +102,8 @@ For `review` mode, score and schedule each concept separately.
    Include every round in Questions, in order. If a round had a re-answer, add `- Re-answer: <one line on whether the reasoning came through>` after "You said". In the `### Delivery` subsection (or a new one in `typed` mode), add `- Frame reminders: on|off (re-answers: N)`, where N is the number of rounds that needed a re-answer. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
    Also remove items from the "Gaps" lists of earlier sections that are now clearly solid, or mark them ✅.
 2. Update the row in `system-design/progress.md`: status, last drill date, drill score, next review, and refreshed key gaps (from the gap-to-senior list).
-3. Every 4th concept marked `drilled` or `solid`, suggest a `/sd-mock` problem from Phase 4 or 7 that exercises those concepts.
+3. Add Anki cards to `system-design/anki/cards/<slug>.md` (create it with a `# <Topic name>` heading if missing). Put each card under a `## <subtopic>` heading named after a curriculum bullet, reusing existing headings. Add 1–2 cards per gap-to-senior item and per hold-in-mind question: `Q:` a short interview-style question, `A:` a 1–3 sentence senior-level answer, and an optional `Staff:` line. One fact per card; skip cards the file already covers, and update an existing card's answer if this session corrected it. Then run `python3 system-design/anki/build.py` and tell the user to re-import `system-design/anki/system-design.txt` (File > Import, Existing notes: Update).
+4. Every 4th concept marked `drilled` or `solid`, suggest a `/sd-mock` problem from Phase 4 or 7 that exercises those concepts.
 
 ## Rules
 - Act like a real interviewer: don't accept buzzwords. If they say "use a cache", ask what's cached, the key, the TTL, and how it's invalidated.

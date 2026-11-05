@@ -63,7 +63,8 @@ After the last question, give:
    - ...
    ```
 2. Update the Concepts table in `system-design/progress.md`: add or update the row for the slug with status `pretested`, the pretest %, and a short "Key gaps" list (3–6 words each, comma-separated). Leave the drill columns as `-`.
-3. Close with: "Study the topic on Hello Interview, then run `/sd-drill <slug>`."
+3. Add Anki cards to `system-design/anki/cards/<slug>.md` (create it with a `# <Topic name>` heading if missing). Put each card under a `## <subtopic>` heading named after a curriculum bullet, reusing existing headings. Add 1–2 cards per gap-to-senior item and per hold-in-mind question: `Q:` a short interview-style question, `A:` a 1–3 sentence senior-level answer, and an optional `Staff:` line. One fact per card; skip cards the file already covers, and update an existing card's answer if this session corrected it. Then run `python3 system-design/anki/build.py` and tell the user to re-import `system-design/anki/system-design.txt` (File > Import, Existing notes: Update).
+4. Close with: "Study the topic on Hello Interview, then run `/sd-drill <slug>`."
 
 ## Rules
 - Never quote or claim to reproduce Hello Interview's paid content. Use general system design knowledge.
