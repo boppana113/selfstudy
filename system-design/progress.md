@@ -13,7 +13,7 @@ Updated automatically by `/sd-pretest`, `/sd-drill`, and `/sd-mock`. Safe to edi
 | long-running-tasks | drilled | - | 2026-11-04 | 50% | 2026-11-07 | notify gating = single conditional UPDATE + rows affected (not ACID/read-then-write), Kafka: 1 consumer/partition + partition cap + max.poll rebalance, page on age of oldest message + max-runtime cap, estimation: don't double peak, say intermediate number |
 | networking | studied | - | 2026-11-05 | 25% | 2026-11-06 | connections can't be moved (3rd miss: dead/draining box → clients reconnect + replay), SSE holds a long-lived HTTP response (stateful), fan-out fix = per-stream pub/sub + hash by stream ID, autoscale on conns/box not CPU + drain, name retry budget + circuit breaker, L4/gRPC: HTTP/2 multiplexing + MAX_CONNECTION_AGE, say what the user sees |
 | ml-delivery-framework | studied | 44% | 2026-11-04 | 38% | 2026-11-06 | LLM variant (model selection replaces training, data → retrieval+ACLs, eval hardest, cost/query, safety), imbalanced metrics (trivial-baseline number, PR-AUC), canary = ops health not accuracy, fraud selective labels + dollar-weighted objective |
-| kafka | studied | - | 2026-11-04 | 42% | 2026-11-06 | consumer-group assignment (1 consumer per partition, extras idle), ordering is per partition, ISR + min.insync.replicas=2, commit-after → duplicates (state consequence), retry topic/DLQ, adding partitions breaks key ordering |
+| kafka | studied | - | 2026-11-04 | 42% | 2026-11-06 | (partial redrill 11-05: R1 Mid, R2 Senior; resume R3) ordering is per partition (say unprompted), min.insync cost = availability, commit-after → duplicates (state consequence), retry topic/DLQ, adding partitions breaks key ordering |
 
 ## Mock Interviews
 

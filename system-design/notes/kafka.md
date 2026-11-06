@@ -79,3 +79,27 @@ consumer group: payment-service
 - Rewrite (R3): "There are three problems. First, auto-commit runs on a timer, so the offset can commit before the charge finishes. If the consumer crashes then, the restart skips that message and the order is never charged, silently. If I commit after charging instead, a crash before the commit replays the message and the customer gets charged twice. So I'd commit after processing and pass order_id as the payment provider's idempotency key. Third, the retry loop: one card that keeps failing blocks everything behind it in the partition, so I'd do a few retries with backoff, then send it to a retry topic and a DLQ, and move on."
 - Did well: R4 follow-up and R6 were concise, mechanism first, consequence included; R6 used the estimation frame unprompted.
 - Frame reminders: on (re-answers: 1)
+
+## Drill: 2026-11-05 (partial, 2 of 6 rounds; not scored; Below mid 0 · Mid 1 · Senior 1 · Staff 0)
+### Questions
+**R1 (Explain it) 🟦 Mid**: 6 partitions, one consumer group with 8 consumers. Who reads what, and what ordering guarantee does each consumer get?
+- Follow-up: "order created" and "order paid" for the same order get processed out of order. How, and how do you prevent it?
+- You said: Each partition gets one consumer, so 6 work and 2 sit idle; consumer commits a sequential "commit ID". Follow-up: the events landed on different partitions; key by order so they share one.
+- Strong answer: "Each partition goes to exactly one consumer in the group, so with 6 partitions and 8 consumers, two sit idle. One consumer can own several partitions, so if some die, a rebalance hands their partitions to the rest. Ordering is per partition only, with none across partitions, so I key by order_id and all of an order's events stay in sequence. The committed offset is a per-partition watermark: everything up to here is done."
+- Staff adds: consumer lag per partition as the scaling signal; cooperative-sticky or static membership so rebalances don't stall deploys.
+
+**R2 (Failure mode) 🟩 Senior**: acks=all, RF 3, both followers drop out of the ISR. A write is acked. Is it safe, and what would you change?
+- Follow-up: with min.insync.replicas=2 and only the leader in sync, what does the producer see, and what are you giving up?
+- You said: Not safe: only the leader has it, and if it crashes the producer never knows the write is gone. Set min.insync.replicas=2 so the broker rejects writes. Follow-up: producer's writes are rejected; "sacrificing throughput."
+- Strong answer: "acks=all only waits for the in-sync replicas, so if the ISR shrinks to the leader, an acked write lives on one box, and if that box dies the write is gone with the producer believing it succeeded. I'd set min.insync.replicas=2 with RF 3, so the broker rejects writes with NotEnoughReplicas instead of losing them. The cost is write availability, not throughput: producers see errors until a follower catches up. I'd keep unclean leader election off so an out-of-sync follower can't become leader."
+- Staff adds: rack-aware replicas across AZs, alert on under-replicated partitions; acks=1 is fine for loss-tolerant data like location pings.
+### Gap to senior
+- Say ordering scope unprompted: "per partition only, none across partitions, so I key by order_id"
+- Use "offset" (not "commit ID"); it's a watermark, not a per-message ack
+- Name the min.insync.replicas cost precisely: availability (writes fail), not throughput
+### Resume
+- Tomorrow: finish R3–R6 (charge-then-crash consequence, adding partitions breaks key ordering, retry topic/DLQ, Kafka vs SQS), then score the full drill.
+### Delivery
+- Habit: R1 bottom line first, then drifted into commit details nobody asked about; stop once the question is answered.
+- Improved: R2 consequence before fix, unprompted: "If the leader replica crashes, then the producer has no knowledge that the message is gone."
+- Frame reminders: on (re-answers: 0)
