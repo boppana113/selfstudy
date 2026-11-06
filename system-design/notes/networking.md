@@ -62,3 +62,75 @@
 - Rewrite (R2): "Every failed call becomes up to six, so the provider gets about six times the load while it's already slow, and it falls over. Worse, a retry that lands after a timeout charges the customer twice. So first, one idempotency key per checkout, reused on every retry. Then a timeout, backoff with jitter, and a retry budget so retries can't exceed about ten percent of traffic. And a circuit breaker, so once errors cross a threshold we fail fast instead of piling on."
 - Did well: R2 opened with the consequences (double charge, stampede) before the fix, unprompted.
 - Frame reminders: on (re-answers: 1)
+
+## Drill: 2026-11-05 (redrill, score 25%; Below mid 3 · Mid 3 · Senior 0 · Staff 0)
+### Questions
+**R1 (Explain it) 🟦 Mid**: Internal gRPC service behind an L4 LB. After a deploy, one instance is at 90% CPU and the rest at 20%. Why, and what would you change?
+- Follow-up: What does L7 cost you, and if you own clients and server, what could you do instead?
+- You said: Long-lived connections, L4 assigns each connection once, uneven → one instance gets more work; replace with L7. Follow-up: "slower routing"; server policy forcing reconnects; "add more instances."
+- Strong answer: "gRPC multiplexes every request over one long-lived HTTP/2 connection, and L4 only balances connections. So after the rolling deploy, whichever instance came up first kept everyone's connections, and its p99 spiked while the rest idled. I'd move to L7 or client-side balancing. L7 costs TLS termination and an extra hop, so if I own the clients I'd do client-side balancing plus MAX_CONNECTION_AGE to force periodic rebalancing."
+- Staff adds: Alert on per-instance request rate; a service mesh gives L7 balancing without a central LB.
+
+**R2 (Estimation) 🟦 Mid**: 200 checkout servers × 500 calls/s to a payment provider; provider slows, every call times out, 5 immediate retries. What load does the provider see, and what caps it?
+- Follow-up: Jitter spreads retries but each failure still becomes 6 calls; what puts a ceiling on total? What about a retry that lands after a timeout?
+- You said: 100k → 600k, stampede; jitter + backoff. Follow-up: "some means of capping requests using recent attempts" (= retry budget, unnamed); idempotency key prevents double charge.
+- Strong answer: "That's 100k becoming 600k, so 6× on a provider that's already slow, and the slowdown turns into an outage. Backoff and jitter spread the retries out, but a retry budget is what caps them, at about 10% of traffic. A circuit breaker stops calling entirely once errors cross a threshold. And one idempotency key per checkout, reused on every retry, prevents double charges."
+- Staff adds: Open breaker → queue checkout as "payment pending"; alert on breaker state.
+
+**R3 (Failure mode) ⬜ Below mid**: WebSocket server with 100k connections dies. Narrate until every user has every missed message.
+- Follow-up: Messages sent during the 10s gap went to a dead socket. How do users get them, and how does the system learn each user's new server?
+- You said: Heartbeat fails, reconnect via gateway, headroom exists. Follow-up: missed messages "moved to the new server"; "some database that records connection state."
+- Re-answer: Came through nearly verbatim (backoff+jitter, registry, seq replay, persisted before delivery); "what the user sees" still missing.
+- Strong answer: "When that box dies, its 100k connections are just gone, so recovery is on the client. Clients notice the failed heartbeat and reconnect with jittered backoff so they don't take down the next servers. The new server updates the user's entry in the connection registry. The client sends the last sequence number it saw and we replay anything newer from the message store. The user sees a few seconds of 'reconnecting', then the missed messages in order."
+- Staff adds: Alert on reconnect rate; LB rate limiting; session-resume token to skip full re-auth.
+
+**R4 (Spot the flaw) ⬜ Below mid**: Live comments design:
+```
+- Viewers open an SSE connection; L4 LB assigns them round-robin across 300 SSE servers
+- POST /comments hits any API server, which writes the comment to Postgres
+- The API server then sends the comment through the load balancer to the SSE servers
+- As a backup, each SSE server polls Postgres every 5s for new comments
+```
+- Follow-up: When one comment goes through the LB, how many SSE servers get it? For a popular stream, how many servers have its viewers?
+- You said: Polling is wasteful; API should fan out itself. Follow-up: only one server gets it; popular stream needs "more than one server."
+- Strong answer: "The LB routes one request to one backend, so 299 servers never see the comment, and round-robin puts every popular stream's viewers on all 300. I'd have the API publish to a per-stream pub/sub channel, SSE servers subscribe only to streams their viewers watch, and an L7 LB hashes viewers by stream ID so each comment reaches a handful of servers. Polling goes away."
+- Staff adds: Split mega-streams across N servers; sample/batch comments; show author's own comment optimistically.
+
+**R5 (Tradeoff duel) ⬜ Below mid**: Live comments, mostly reads. SSE or WebSockets?
+- Follow-up: If SSE doesn't hold a connection, how does the server push instantly? What would make you switch?
+- You said: SSE; one-way vs bidirectional; "SSE doesn't maintain any connection." Follow-up: "I'm not sure what I'm saying."
+- Re-answer: Came through with the unsure frame: reasoned to long-lived HTTP response, gave cost (SSE fleet, sharding) and switch trigger (slightly off: "users writing to each other").
+- Strong answer: "SSE, because traffic is one-way and it's plain HTTP: one long-lived response the server keeps writing events to, so it works through L7 LBs and proxies, and the browser auto-reconnects with Last-Event-ID for replay. Posting is a normal POST. The cost is it's server-to-client only, and HTTP/1.1 caps ~6 connections per domain. I'd switch to WebSockets for high-frequency client sends like typing indicators or cursors."
+- Staff adds: HTTP/2 multiplexes SSE streams; SSE can share the API's L7 tier.
+
+**R6 (Scale it up) 🟦 Mid**: 10M concurrent SSE viewers. How many connection servers, and what do you autoscale on?
+- Follow-up: Scaling 150 → 75 after the event: what happens to viewers on removed servers, and is CPU the trigger?
+- You said: 100k/box → 100 min, 1.5× → 150 for spikes; 5M → 75. Follow-up: viewers "get moved"; autoscale on average CPU.
+- Strong answer: "Assuming ~100k connections per box, memory-bound, 10M is 100 servers; I'd run 150 so a dead box's connections and uneven stickiness have room. Idle connections barely use CPU, so I'd autoscale on connections per box. Scaling down, I stop routing new connections to a box, then close its connections gradually so clients reconnect with jitter elsewhere, and terminate it when empty."
+- Staff adds: Pre-scale before a scheduled event (autoscaling lags a surge); cap drain rate.
+
+### Gap to senior
+- **Connections can't be moved** (3rd time: 11-02 crash, R3, R6). A dead or draining box's connections end; clients reconnect elsewhere; state lives in the message store + registry, never on the socket.
+- SSE holds one long-lived HTTP response open. Both SSE and WebSockets are stateful connection servers; the difference is direction and plumbing.
+- Live-comment fan-out fix: per-stream pub/sub + hash viewers by stream ID (spotted the LB flaw, couldn't give the fix).
+- Autoscale connection servers on connections per box, not CPU; scale-down = drain.
+- Name both retry caps: retry budget (~10%) and circuit breaker. Same idempotency key on every retry.
+- L4/gRPC: say HTTP/2 multiplexing, MAX_CONNECTION_AGE by name, L7 cost = TLS termination + extra hop. More instances doesn't help.
+- State what the user sees (p99 spike; "reconnecting…" then messages in order).
+
+### Staff stretch
+- Pre-scale for scheduled events; cap drain rate
+- Session-resume token on reconnect; alert on reconnect rate
+- Mega-stream: split across N servers, sample comments
+
+### Interview-ready lines
+- "You can't move a connection. When a box dies or drains, clients reconnect elsewhere with jitter and replay from their last sequence number."
+- "SSE is one long-lived HTTP response the server keeps writing to, so it's still a stateful connection, just one-way."
+- "API publishes to a per-stream channel, SSE servers subscribe for their viewers' streams, and I hash viewers by stream ID."
+- "Idle connections are memory-bound, so I autoscale on connections per box, and scale down by draining."
+
+### Delivery
+- Habit: stopping at "I'm not sure" (R5: "I take that back. I'm not sure what I'm saying."). RECURRING (5th time). But R2 broke it: "I don't know the exact mechanism, but I will provide some means of capping…" reasoned to a retry budget unprompted, and R5's re-answer with the unsure frame reached the right mechanism.
+- Rewrite (R6): "Assuming about 100k connections per box, since idle connections are memory-bound, 10 million viewers is 100 servers. I'd run 150, so if one dies its 100k clients have somewhere to land. I wouldn't autoscale on CPU, because idle connections barely use it. I'd scale on connections per box. And scaling down, you can't move a connection, so I stop sending new ones to a box, close its connections gradually so clients reconnect elsewhere with jitter, then kill it when it's empty."
+- Did well: R2 and R6 estimation had setup → formula → number cleanly; both re-answers landed.
+- Frame reminders: on (re-answers: 2)
