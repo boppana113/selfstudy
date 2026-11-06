@@ -11,6 +11,10 @@ A: Each consumer owns 2 partitions. One consumer can own many partitions, but a 
 Q: A second consumer group subscribes to the same topic. Does it compete with the first group for messages?
 A: No. Each group reads every partition independently and tracks its own offsets. That's the "stream" part: many readers, and replay by resetting offsets.
 
+Q: Fraud, email, and analytics all read order events from one topic. Analytics wants to reprocess last week. How, without disturbing fraud?
+A: Each team is its own consumer group with its own offsets. Analytics resets its group's offsets to last week's timestamp, as long as that's within retention. No new topic needed.
+Staff: Tiered storage makes long retention cheap.
+
 Q: What does a committed offset mean?
 A: "This group has processed everything in this partition up to here." It's a single watermark per partition, not a per-message ack.
 
@@ -40,6 +44,9 @@ Q: You commit only after the charge. The consumer charges, then crashes before c
 A: The next consumer re-reads from the last commit and charges the card again. That's at-least-once, the normal state for Kafka consumers. Make the consumer idempotent: pass order_id as the payment provider's idempotency key.
 Staff: Write the result and a processed(order_id) row in one transaction (or an outbox), and run a reconciliation job against the provider.
 
+Q: The consumer checks its own DB for the idempotency key, charges, then crashes before writing the row. What happens?
+A: The replay finds no row and charges again: check-then-act races with the crash. Pass order_id as the payment provider's idempotency key so the provider drops the duplicate.
+
 Q: Does Kafka's exactly-once (idempotent producer + transactions) prevent a duplicate charge to an external API?
 A: No. It only covers Kafka-to-Kafka (read, process, write to another topic). Side effects outside Kafka need an idempotent consumer.
 
@@ -67,6 +74,12 @@ A: Head-of-line blocking: every message behind it in the partition waits. If the
 Q: How should a Kafka consumer handle a message that keeps failing?
 A: Bounded retries with backoff, then publish it to a retry topic and finally a DLQ, commit, and move on. Treat a non-retryable error like a declined card as a business outcome, not a retry.
 
+Q: After 10 failed retries, a consumer logs the error, commits, and moves on. What's wrong?
+A: Silent loss: that message is never processed and nobody finds out. Send it to a DLQ with alerting before committing.
+
+Q: A consumer sleeps a fixed 60 seconds between retries of a downstream API. What's the problem?
+A: Retries stay synchronized and hit the API in waves while it's struggling. Use exponential backoff with jitter, and a circuit breaker during an outage.
+
 ## Kafka vs SQS
 Q: Job 100 in a partition takes 20 minutes; 101–110 take 2 minutes and finish first. Can you commit offset 110? What if you crash now?
 A: No. The commit is a watermark, and 100 isn't done. A crash replays 100 through 110.
@@ -74,6 +87,9 @@ A: No. The commit is a watermark, and 100 isn't done. A crash replays 100 throug
 Q: Why is Kafka a poor fit for a work queue of 20-minute jobs?
 A: One slow job pins the commit watermark, and a crash replays everything after it. Parallelism is capped at the partition count. Processing past max.poll.interval.ms triggers a rebalance and duplicate work. There's no per-message retry or DLQ. SQS gives per-message leases and acks.
 Staff: Newer Kafka versions add share groups (KIP-932) with per-message acks; or Kafka carries only dispatch while a jobs table holds state.
+
+Q: Three teams need the same events. How would you do that with SQS, and what can't you do?
+A: SNS fanning out to one SQS queue per team. Messages are deleted once acked, so no team can replay history.
 
 Q: When is Kafka the right choice over SQS?
 A: High-throughput event streams where several consumer groups each need the full history, ordering per key, and replay.

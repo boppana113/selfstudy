@@ -98,8 +98,70 @@ consumer group: payment-service
 - Use "offset" (not "commit ID"); it's a watermark, not a per-message ack
 - Name the min.insync.replicas cost precisely: availability (writes fail), not throughput
 ### Resume
-- Tomorrow: finish R3–R6 (charge-then-crash consequence, adding partitions breaks key ordering, retry topic/DLQ, Kafka vs SQS), then score the full drill.
+- ✅ Finished 2026-11-06 (R3–R6 below; full drill scored there).
 ### Delivery
 - Habit: R1 bottom line first, then drifted into commit details nobody asked about; stop once the question is answered.
 - Improved: R2 consequence before fix, unprompted: "If the leader replica crashes, then the producer has no knowledge that the message is gone."
 - Frame reminders: on (re-answers: 0)
+
+## Drill: 2026-11-06 (score 58%; Below mid 1 · Mid 3 · Senior 2 · Staff 0)
+Completes the 11-05 partial drill: R1–R2 are in the entry above and counted in this score.
+### Questions
+**R3 (Failure mode) 🟩 Senior**: Your payment consumer commits only after the charge succeeds. It charges the card, then crashes before committing. What happens, and what does the customer sees?
+- Follow-up: The consumer checks your payment DB for the key, doesn't find it, charges, and crashes before writing the row. What stops the second charge?
+- You said: Bottom line first: the customer gets charged twice; the partition is reassigned and the new consumer re-processes. Fix: idempotency key checked in the payment DB. Follow-up: reasoned that the payment provider keeps the key record, so it's not on our system.
+- Strong answer: "Commit-after gives at-least-once. The partition is reassigned, the new consumer resumes from the last committed offset, and the charge replays, so the customer is charged twice. A check in my own DB races: charge, crash, row never written. So I pass order_id as the provider's idempotency key and the provider drops the duplicate. Kafka's exactly-once doesn't help, because it only covers Kafka-to-Kafka."
+- Staff adds: reconciliation job against the provider; outbox or same-transaction processed row for our own records.
+
+**R4 (Scale it up) 🟦 Mid**: The orders topic is keyed by order_id with 12 partitions, and traffic is about to triple. Someone proposes bumping it to 36 partitions on the live topic. What breaks?
+- Follow-up: The default partitioner is hash(key) mod partition count. Where does order 123's next event land, and what if its "created" event is already in partition 5?
+- You said: First: orders still go to the original 12 because the hashing stays the same (backwards); fix is a new topic with 36 partitions. Follow-up: events come out of order; fix is more compute per partition.
+- Re-answer: Reasoning came through (key mod N → orders move partitions → out of order → new topic, drain old); missed what the user sees.
+- Strong answer: "The partitioner is hash of the key mod the partition count, so going from 12 to 36 remaps most keys. Order 123's 'created' is still in partition 5 while 'paid' lands in partition 20, read by a different consumer, so 'paid' can be processed first and the payment is rejected or the order shows paid before it exists. I'd size partitions for growth up front. If I outgrow them, I'd make each consumer faster first (batching, a thread pool keyed by order_id), and otherwise migrate to a new topic and cut over once the old one drains."
+- Staff adds: dual-write then cutover; partitions cost broker memory, files, and leader elections, so over-provisioning has a ceiling.
+
+**R5 (Spot the flaw) 🟦 Mid**: What's wrong with this shipping-label consumer?
+```
+topic: shipments   (12 partitions, key = order_id)
+consumer group: label-service, 20 consumers
+  for each message:
+      call the carrier API to create a label
+      on error: sleep 60s and retry, up to 10 times
+      after 10 failures: log the error, commit, move on
+```
+- Follow-up: One label keeps failing, so the consumer spends ~10 minutes in its retry loop. What happens to the other orders on that partition, and what does Kafka do to a consumer that hasn't polled in 10 minutes?
+- You said: Fixed sleep synchronizes retries into a stampede on the carrier; use exponential backoff with jitter; after 10 failures return an error to the user (no user in an async consumer). Follow-up: the partition backs up; guessed Kafka assumes the consumer failed and restarts it, so it loops.
+- Strong answer: "Three problems. The retry loop blocks the partition for ten minutes, so labels stop for every order behind it, and past max.poll.interval.ms, five minutes by default, the consumer is kicked, the partition moves, and the next consumer hits the same poison message. Log-and-commit silently drops the order: no label, and nobody knows. So I'd do two or three quick retries with jittered backoff, then a retry topic and a DLQ with alerting, and commit so the partition keeps moving. And 20 consumers on 12 partitions means 8 sit idle."
+- Staff adds: alert on DLQ depth and per-partition lag; circuit breaker on the carrier API so an outage pauses consumption instead of flooding the DLQ; a DLQ replay tool.
+
+**R6 (Tradeoff duel) ⬜ Below mid**: Order events need to reach fraud checks, the email service, and analytics, which sometimes reprocesses last week. Kafka or SQS?
+- Follow-up: How does analytics rewind to last week without disturbing fraud's position, and what does Kafka cost you here?
+- You said: Kafka, because it supports replay and SQS doesn't. Follow-up: analytics creates a new topic, replays onto it, and is its only consumer; cost is a new topic per team.
+- Strong answer: "Kafka. Each team is its own consumer group reading the same log with its own offsets, so fraud, email, and analytics never affect each other, and a fourth team is just a new group. Analytics replays by resetting its group's offsets to last week's timestamp, as long as that's within retention, so I'd set retention to at least two weeks. SQS deletes a message once it's acked, so I'd need SNS fanning out to three queues and still couldn't replay. The cost is running Kafka, sizing partitions, and building retries and DLQs myself; for the email service alone, SQS would be simpler."
+- Staff adds: tiered storage for long retention; schema registry so three teams can evolve the event format safely.
+### Gap to senior
+- Below mid: fan-out is one consumer group per team on the same log, each with its own offsets; replay = reset that group's offsets to a timestamp within retention. No new topic.
+- Partitioner is hash(key) mod N: changing N remaps keys (they don't stay put), so per-key ordering breaks; size up front, new topic + drain to grow
+- Poison message: long retry blocks the partition, and past max.poll.interval.ms the partition bounces between consumers; bounded retries → retry topic → DLQ; log-and-commit is silent loss
+- Spot consumers > partitions unprompted (3rd miss): extras sit idle
+- Idempotency lives at the provider (order_id as key); a local check-then-charge races
+- Say what the user sees before the fix (R4, R5)
+### Staff stretch
+- Exactly-once covers Kafka-to-Kafka only; reconciliation against the provider
+- Circuit breaker on downstream API; DLQ depth + per-partition lag alerts; DLQ replay tool
+- Partition count ceiling; dual-write migration
+- Tiered storage for long retention; schema registry for multi-team topics
+### Interview-ready lines
+- "Each team is its own consumer group with its own offsets, so analytics can rewind to last week without touching fraud."
+- "The partitioner is hash of the key mod N, so changing N remaps keys and breaks per-key ordering. I size for growth up front."
+- "A long retry loop blocks the partition and gets the consumer kicked, so I do a few retries, then a retry topic and a DLQ, and commit."
+- "Twenty consumers on twelve partitions means eight are idle."
+- "I pass order_id as the provider's idempotency key, because a check in my own DB races with a crash."
+### Hold-in-mind questions
+- Three teams read the same order events and one wants to replay last week. How, in Kafka, without a new topic?
+- What does log-and-commit after N failures do to that message?
+### Delivery
+- Habit (RECURRING): fix before user impact. R4: "The fix is to increase the number of compute for each partition" right after the consequence, no walk-through; R5: "which can lead to a backlog" (system view) instead of "labels stop for every order on that partition."
+- Rewrite (R6): "I'd use Kafka, because three teams need the same events and one needs replay. Each team is its own consumer group, so they read the same log with separate offsets and never step on each other. When analytics wants last week, it resets its group's offsets to that timestamp, as long as it's within retention, so I'd keep two weeks. SQS deletes a message once it's consumed, so I'd need SNS fanning out to three queues and still couldn't replay. The cost is running Kafka and building retries and a DLQ myself."
+- Did well: R3 opened with the consequence unprompted ("the customer gets charged twice"), the miss from 11-04; used the unsure frame twice ("I don't know the exact mechanism, but I'd assume…").
+- Frame reminders: off (re-answers: 1)
