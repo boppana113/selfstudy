@@ -161,7 +161,7 @@ consumer group: label-service, 20 consumers
 - Three teams read the same order events and one wants to replay last week. How, in Kafka, without a new topic?
 - What does log-and-commit after N failures do to that message?
 ### Delivery
-- Habit (RECURRING): fix before user impact. R4: "The fix is to increase the number of compute for each partition" right after the consequence, no walk-through; R5: "which can lead to a backlog" (system view) instead of "labels stop for every order on that partition."
+- Habit (RECURRING): consequence stops at the system view; user impact skipped. Consequence-before-fix order held all session. R4 first answer: consequence rested on a wrong mechanism ("still only go to the original 12"), then the fix; R5: "which can lead to a backlog" instead of "labels stop for every order on that partition."
 - Rewrite (R6): "I'd use Kafka, because three teams need the same events and one needs replay. Each team is its own consumer group, so they read the same log with separate offsets and never step on each other. When analytics wants last week, it resets its group's offsets to that timestamp, as long as it's within retention, so I'd keep two weeks. SQS deletes a message once it's consumed, so I'd need SNS fanning out to three queues and still couldn't replay. The cost is running Kafka and building retries and a DLQ myself."
 - Did well: R3 opened with the consequence unprompted ("the customer gets charged twice"), the miss from 11-04; used the unsure frame twice ("I don't know the exact mechanism, but I'd assume…").
 - Frame reminders: off (re-answers: 1)
