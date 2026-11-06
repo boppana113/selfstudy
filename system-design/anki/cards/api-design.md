@@ -1,0 +1,41 @@
+# API Design
+
+## Resource modeling, plural nouns, nesting
+Q: How deep should you nest REST resources, e.g. users → posts → comments?
+A: One level at most: `/posts/{id}/comments`. Anything with its own global id stays top-level (`GET /posts/{id}`), so clients never need the parent's id just to fetch it. Deep paths lock you into one access pattern.
+
+Q: Cancel an order: DELETE, PATCH status, or POST /orders/{id}/cancel?
+A: Not DELETE, because the order still exists, now cancelled. `POST /orders/{id}/cancel` fits a state transition with business rules and side effects (refund, restock, 409 if shipped), while a generic PATCH lets clients set arbitrary statuses. Action endpoints can be synchronous.
+
+## Pagination
+Q: Why does offset pagination break on a live feed?
+A: Two ways. Deep offsets make the database scan and discard every skipped row, so pages get slower. New inserts shift everything, so users see duplicates or miss items.
+
+Q: What does a cursor encode, and what does the next-page query look like?
+A: An opaque (base64) encoding of the last item's sort key plus a tiebreaker, e.g. (created_at, id). The next query is `WHERE (created_at, id) < :cursor ORDER BY created_at DESC, id DESC LIMIT 20`, an index seek that's stable under inserts. The cost is no jumping to page N.
+Staff: Keep it opaque so you can change what it encodes without breaking clients.
+
+## Auth placement
+Q: Where does user identity go on POST /posts, and why not a user_id in the body?
+A: `Authorization: Bearer <JWT or session token>`. The server derives user_id from the verified token. A user_id in the body can be set to anyone's id, which lets a caller impersonate other users.
+
+Q: JWT vs session token: the tradeoff?
+A: A JWT is verified statelessly (signature only, no lookup) but can't easily be revoked before it expires, so keep it short-lived and add a refresh token. A session token needs a store lookup per request but can be revoked instantly.
+
+## Idempotency and versioning
+Q: Idempotency key on POST: who generates it, and what does a retry get back?
+A: The client generates a UUID once per user action and reuses it on every retry. The server stores key → response (per user, TTL around 24h) and returns the original response, with the same resource id, instead of creating a duplicate.
+
+Q: Two retries with the same idempotency key arrive at the same time. What happens?
+A: A unique constraint on the key (or an insert-if-absent "in progress" record) lets exactly one proceed. The other waits for the stored response or gets a 409, so there's never a double create.
+
+Q: Rolling out a breaking response change to millions of mobile clients?
+A: Prefer additive changes. If you must break, version with a prefix (`/v2/posts`) or a header, run v1 and v2 side by side, track traffic per version, and set a deprecation window. Old app versions never disappear, so enforce a minimum-supported-version upgrade.
+
+## REST vs RPC vs GraphQL vs WebSocket
+Q: Adding instant DMs to a REST app: what do you use, and what do you give up?
+A: Keep REST for sending and history; add WebSockets (or SSE if push is one-way) for delivery. You give up statelessness: sticky routing, a connection registry, scaling on connections per box, reconnect plus replay from the last sequence number, and no HTTP caching.
+
+Q: Two concrete costs of GraphQL over REST?
+A: N+1 resolver queries (fix with DataLoader batching), and losing HTTP/CDN caching because everything is a POST to one endpoint. Also: arbitrary queries need depth and cost limits, and rate limiting gets harder.
+Staff: For one screen's five calls, a BFF or aggregated endpoint is often cheaper than adopting GraphQL.
