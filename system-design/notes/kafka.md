@@ -107,7 +107,7 @@ consumer group: payment-service
 ## Drill: 2026-11-06 (score 58%; Below mid 1 · Mid 3 · Senior 2 · Staff 0)
 Completes the 11-05 partial drill: R1–R2 are in the entry above and counted in this score.
 ### Questions
-**R3 (Failure mode) 🟩 Senior**: Your payment consumer commits only after the charge succeeds. It charges the card, then crashes before committing. What happens, and what does the customer sees?
+**R3 (Failure mode) 🟩 Senior**: Your payment consumer commits only after the charge succeeds. It charges the card, then crashes before committing. What happens, and what does the customer see?
 - Follow-up: The consumer checks your payment DB for the key, doesn't find it, charges, and crashes before writing the row. What stops the second charge?
 - You said: Bottom line first: the customer gets charged twice; the partition is reassigned and the new consumer re-processes. Fix: idempotency key checked in the payment DB. Follow-up: reasoned that the payment provider keeps the key record, so it's not on our system.
 - Strong answer: "Commit-after gives at-least-once. The partition is reassigned, the new consumer resumes from the last committed offset, and the charge replays, so the customer is charged twice. A check in my own DB races: charge, crash, row never written. So I pass order_id as the provider's idempotency key and the provider drops the duplicate. Kafka's exactly-once doesn't help, because it only covers Kafka-to-Kafka."
