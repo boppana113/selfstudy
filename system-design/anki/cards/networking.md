@@ -24,6 +24,9 @@ A: Connections per box, not CPU: idle connections are memory-bound and barely us
 Staff: Pre-scale before a scheduled event; autoscaling lags a surge.
 
 ## Load balancing
+Q: Why do HTTP/1.1 clients rebalance after a scale-out behind L4, but gRPC clients don't?
+A: HTTP/1.1 clients use pools of connections that churn, so new connections land on new boxes. gRPC multiplexes every request over one long-lived HTTP/2 connection, so the L4 balancer never gets another pick; MAX_CONNECTION_AGE (~5 min) forces reconnects.
+
 Q: L4 vs L7 load balancing, in one line each?
 A: L4 balances connections (TCP); L7 balances requests (HTTP), so it can route by path or header, at the cost of terminating and parsing every request.
 
@@ -35,6 +38,10 @@ A: L7 has to terminate TLS and parse HTTP/2, so it adds CPU, an extra hop of lat
 Staff: Alert on per-instance request rate, not connection count, to catch this.
 
 ## Timeouts & retries
+Q: A provider is slow and every checkout waits out a full timeout before failing. What stops that?
+A: A circuit breaker. Once errors or timeouts cross a threshold (e.g. 50% over 10 s), it opens and calls fail in milliseconds without hitting the provider; after a cooldown, half-open test calls close it if they succeed.
+Staff: While open, accept the order and charge it async from a queue, so the user sees "processing".
+
 Q: A provider slows down for 30 seconds, and 200 servers retry 5× immediately. What happens?
 A: Each request becomes up to 6 attempts, so load on an already struggling provider multiplies about 6×. That's a retry storm.
 

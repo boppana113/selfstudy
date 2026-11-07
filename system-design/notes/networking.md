@@ -134,3 +134,33 @@
 - Rewrite (R6): "Assuming about 100k connections per box, since idle connections are memory-bound, 10 million viewers is 100 servers. I'd run 150, so if one dies its 100k clients have somewhere to land. I wouldn't autoscale on CPU, because idle connections barely use it. I'd scale on connections per box. And scaling down, you can't move a connection, so I stop sending new ones to a box, close its connections gradually so clients reconnect elsewhere with jitter, then kill it when it's empty."
 - Did well: R2 and R6 estimation had setup → formula → number cleanly; both re-answers landed.
 - Frame reminders: on (re-answers: 2)
+
+## Drill: 2026-11-07 (review, score 50%; Below mid 0 · Mid 2 · Senior 0 · Staff 0)
+### Questions
+**R1 (Failure mode) 🟦 Mid**: gRPC services behind an L4 load balancer; you scale out from 10 to 20 instances and the 10 new ones sit almost idle. Why, and what would you change?
+- Follow-up: Why is this worse for gRPC than HTTP/1.1 behind the same L4? If you can't switch to L7, what instead?
+- You said: L4 balances per connection; gRPC connections persist, so traffic stays on the original 10; switch to L7 to route per request. Follow-up: long-lived connections; impose a max connection life so clients reconnect. No HTTP/2 multiplexing, no user impact, no number.
+- Re-answer: offered (skipped consequence), user skipped.
+- Strong answer: "An L4 balancer picks a backend once per TCP connection, and gRPC multiplexes every request over one long-lived HTTP/2 connection, so clients stay pinned to the original 10. Those stay hot, p99 stays high, and the new boxes do nothing. I'd move to an L7 balancer that routes per request; if I can't, MAX_CONNECTION_AGE of about five minutes makes clients reconnect and spread out. The cost of L7 is a TLS termination and HTTP/2 parse on every request."
+- Staff adds: client-side load balancing via service discovery; Envoy sidecars in a mesh.
+
+**R2 (Failure mode) 🟦 Mid**: A payment provider slows down for 30 seconds; 200 servers each retry failed calls 5 times immediately. What happens, and what would you change?
+- Follow-up: Even with backoff and a budget, every checkout still waits out a full timeout. What stops that, and what does the user see?
+- You said: 6 calls per server, 1,200 total (multiplier is per failed call, not per server), provider overwhelmed, user request fails; backoff + jitter, 10% retry budget, idempotency key. Follow-up: "no way to not wait for the full timeout"; show a "processing" message. Missed circuit breaker (2nd miss).
+- Strong answer: "Every failed call becomes six, so the provider gets six times its load while it's already slow, and it stays down longer. I'd set a tight timeout, retry with jittered backoff under a 10% retry budget, and reuse one idempotency key per checkout so a retry never double-charges. And a circuit breaker: once errors pass a threshold, we fail fast instead of waiting on timeouts. Orders go to a queue and the user sees 'processing'."
+- Staff adds: breaker open → accept order and charge async from a queue; half-open probes to recover.
+### Gap to senior
+- Circuit breaker: error threshold → open, fail in ms; half-open probe calls to recover (2nd miss)
+- gRPC imbalance = HTTP/2 multiplexing over one connection; MAX_CONNECTION_AGE ~5 min + grace
+- Say what the user sees: hot boxes keep p99 high after the scale-out
+### Staff stretch
+- Client-side LB / Envoy sidecars; async queue when the breaker is open
+### Interview-ready lines
+- "Once errors pass a threshold, the breaker opens and we fail in milliseconds instead of waiting on timeouts."
+- "gRPC multiplexes everything over one HTTP/2 connection, so L4 pins it; MAX_CONNECTION_AGE forces a rebalance."
+- "So the original boxes stay hot, p99 stays high, and the scale-out does nothing."
+### Delivery
+- Habit (RECURRING): user impact skipped in R1 ("all the traffic is on the original 10" → never said p99/timeouts). R2 improved: "The user request failed" came before the fixes.
+- Rewrite (R1): "An L4 balancer picks a backend once per connection, and gRPC sends every request over one long-lived HTTP/2 connection. So after the scale-out, clients stay pinned to the original ten. Those stay overloaded, users keep seeing slow responses, and the ten new boxes sit idle. I'd move to an L7 balancer that routes each request. If I can't, I'd set a max connection age of about five minutes so clients reconnect and spread out."
+- Did well: no Below-mid answers (25% → 50%); named three of four retry-storm fixes unprompted with a specific 10% budget.
+- Frame reminders: on (re-answers: 1, skipped by user)
