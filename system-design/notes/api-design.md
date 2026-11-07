@@ -55,7 +55,7 @@
 - Rewrite (Q2): "I'd use cursor pagination, not offset. Offset has two problems on a feed. The database has to scan and throw away every skipped row, so deep pages get slow. And new posts shift everything down, so the user sees duplicates. With a cursor, each response returns an opaque cursor, which is basically the last post's timestamp and id. The next request says 'give me 20 older than that', which is an index seek, and it stays stable as new posts come in. The cost is no jumping to page 50, and nobody does that on a feed."
 - Did well: no "I'm not sure" this session; committed to an answer every time; Q4 opened with its bottom line.
 
-## Drill: 2026-11-06 (partial, 3 of 6 rounds; not scored; Below mid 0 · Mid 3 · Senior 0 · Staff 0)
+## Drill: 2026-11-06 (partial, 3 of 6 rounds; completed and scored 2026-11-07 below)
 ### Questions
 **R1 (Failure mode) 🟦 Mid**: Your Instagram feed uses offset pagination, 20 per page. A user sees a post on page 3 they already saw on page 2. Why, and what would you change?
 - Follow-up: What exactly goes inside the cursor, and what query does the server run for the next page?
@@ -96,4 +96,71 @@ DELETE /orders/{order_id}        # cancels the order
 - Habit (RECURRING): unsure frame opened, then a guess instead of reasoning. R1 follow-up: "I'm not sure... it would probably take your last cursor ID, apply some offset"; R3: "I'm not sure what the right behavior is, but I would imagine an already created message is acceptable."
 - Rewrite (R3): "The first request already created the post, so the retry shouldn't create another one. The server looks up the key and replays the stored response, the same 201 and post id. That matters because the phone never saw the first response; if I sent an error, the app would say the post failed and the user would tap again. For the concurrent case, the first request writes the key as in progress before it does any work, with a unique constraint, so the second one fails that insert and gets a 409, retry shortly."
 - Did well: R1 went cause → what the user sees → fix → cost, unprompted; R2 named the impersonation consequence for user_id in the body.
+- Frame reminders: on (re-answers: 1)
+
+## Drill: 2026-11-07 (score 58%; Below mid 0 · Mid 5 · Senior 1 · Staff 0)
+Completes the 11-06 partial drill (R1–R3 asked 11-06; R3 re-answer + R4–R6 on 11-07).
+### Questions
+**R1 (Failure mode) 🟦 Mid**: Offset-paginated Instagram feed; user sees a page-2 post again on page 3. Why, and what would you change?
+- Follow-up: What goes inside the cursor, and what query runs for the next page?
+- You said: inserts shift posts down → duplicates; switch to cursor, cost no jump-ahead. Guessed the server "applies some offset" from the cursor.
+- Strong answer: see 11-06 entry. Cursor = (created_at, id); WHERE (created_at, id) < cursor ORDER BY ... LIMIT 20, an index seek.
+- Staff adds: signed cursor; ranked feeds page a precomputed list/snapshot id.
+
+**R2 (Spot the flaw) 🟦 Mid**: Design shown:
+```
+GET    /users/{user_id}/posts/{post_id}/comments/{comment_id}
+POST   /users/{user_id}/posts/{post_id}/comments
+         body: { "user_id": 42, "text": "nice!" }
+DELETE /orders/{order_id}        # cancels the order
+```
+- Follow-up: A notification links to comment 987. What does the client need to fetch it?
+- You said: user_id from token, not body; cancel → POST /orders/{id}/cancel. Missed the deep-nesting problem.
+- Strong answer: see 11-06 entry. GET /comments/987; nest one level for list/create only.
+- Staff adds: idempotent cancel; deep paths hard-code one access pattern.
+
+**R3 (Failure mode) 🟦 Mid**: Retry with same idempotency key after the first request succeeded: what does the server return; what if the retry arrives mid-processing?
+- Follow-up: The phone never saw the first response. If the retry gets "already created", what does the app show, and what should the server return?
+- You said: (11-06) "already created" is acceptable. (11-07 re-answer) return the original response.
+- Re-answer: conclusion right, reasoning skipped: never said the error makes the app show "failed" so the user posts again.
+- Strong answer: see 11-06 entry. Replay the stored 201 + post id; insert key as in_progress first under a unique constraint, second gets 409.
+- Staff adds: per-user keys, ~24h TTL, same key + different body → 422.
+
+**R4 (Tradeoff duel) 🟦 Mid**: Mobile API for an Instagram-style app; someone pushes GraphQL over REST. Which, and why?
+- Follow-up: What does GraphQL cost on the server side vs REST? Two concrete things.
+- You said: GraphQL, so web and mobile request exactly the fields they need (no cost named). Follow-up: bypasses browser caching, every field needs a resolver, "more overhead", "CPU intensive".
+- Strong answer: "I'd pick GraphQL because web and mobile need different shapes of the same feed and it saves round trips per screen. The cost is losing HTTP/CDN caching, since everything is a POST to one endpoint, so I'd use persisted queries. Naive resolvers cause N+1, so I'd batch with DataLoader, and arbitrary nesting can melt the DB, so I'd add depth and complexity limits. For a public API I'd stay on REST."
+- Staff adds: per-field authorization (nested-path leaks); observability (all 200s on one endpoint); BFF as the cheaper alternative.
+
+**R5 (Scenario) 🟦 Mid**: Users still on a two-year-old app version; you need to change the posts response shape. How do you ship it without breaking them?
+- Follow-up: You can't run v1 forever. How do you turn it off when you can't force updates?
+- You said: add /v2, keep v1 returning the old shape, cost is maintaining both. Follow-up: notify users to update, support v1 until a cutoff, then it's on the client.
+- Strong answer: "First I'd make it additive: add the new field and keep the old one. If it's truly breaking, I'd add v2 and implement v1 as an adapter over v2, so there's one code path. The app sends its version on every request; I track v1 traffic and, once it's under ~1%, the min-version check shows old apps a forced-upgrade screen instead of a broken feed. The cost is a long tail of adapter code because mobile users update slowly."
+- Staff adds: ship the min-version check from day 1; Deprecation/Sunset headers; mobile needs longer windows than web.
+
+**R6 (Failure mode) 🟩 Senior**: DMs on WebSockets; a deploy restarts half the chat servers. What happens to connected users, and how does your design handle it?
+- Follow-up: When a client reconnects, how does the new server know which messages to replay?
+- You said: connections drop; clients reconnect to other servers with jittered exponential backoff; Redis connection registry updated; user sees a disconnect, then missed messages replayed. Follow-up: client sends its last offset/id, server replays newer from the DB.
+- Strong answer: "Connections can't move, so those users disconnect. I'd drain instead of hard-killing: stop routing new connections, send close frames spread over a few minutes. Clients reconnect with jittered backoff to a healthy box, which updates the Redis registry. Each client sends its last sequence number per conversation and the server replays newer messages from the store; messages are stored before delivery, so nothing is lost. The user sees a one-second blip."
+- Staff adds: graceful drain with close frames; per-conversation sequence numbers; store-before-deliver.
+### Gap to senior
+- Say what the user sees and the cost, unprompted (R3: "failed" → double post; R5: broken app after cutoff; R4: cost only on follow-up)
+- Concurrent retries: insert key as in_progress first under a unique constraint; second gets 409
+- Cursor query is an index seek, no offset: WHERE (created_at, id) < cursor
+- Own id → top-level (GET /comments/987); nest only for list/create; relationship in the FK
+- GraphQL costs: N+1 (DataLoader), lost CDN caching (persisted queries), unbounded queries (depth limits)
+- Versioning: additive first; v1 as adapter over v2; min-version check → forced upgrade; cut at <1% traffic
+### Staff stretch
+- Signed cursors; GraphQL per-field authz; drain WebSocket servers with close frames; min-version check from day 1
+### Interview-ready lines
+- "...so the user sees ___. The fix is ___, and it costs ___."
+- "The first request writes the key as in progress under a unique constraint, so a concurrent retry gets a 409."
+- "The next page is WHERE (created_at, id) < cursor, an index seek at any depth."
+- "A comment has its own id, so it's GET /comments/987; the link to the post lives in the foreign key."
+- "GraphQL costs me N+1, which I batch with DataLoader, HTTP caching, which I get back with persisted queries, and I need depth limits."
+- "Additive first; if it truly breaks, v1 becomes an adapter over v2, and a min-version check forces the upgrade."
+### Delivery
+- Habit (RECURRING, 4+ sessions incl. kafka, long-running-tasks): names the fix and stops before user impact or cost. "It is then on the client's side to migrate to the new version of the app."
+- Rewrite (R5): "First I'd try to make the change additive: add the new field and keep the old one, so nothing breaks. If it's truly breaking, I'd ship v2 and have v1 call v2 and reshape the response, so I'm not running two backends. To retire v1, the app sends its version on every request, and I watch v1 traffic. Once it's under about one percent, the min-version check shows old apps an update screen, so the user gets a clear prompt instead of a broken feed. The cost is months of adapter code, because mobile users update slowly."
+- Did well: unsure frame followed by real reasoning, no guesses; R6 consequence → fix → what the user sees, unprompted (connections-can't-move was a 3x networking miss).
 - Frame reminders: on (re-answers: 1)

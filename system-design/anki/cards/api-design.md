@@ -41,6 +41,13 @@ A: A unique constraint on the key (or an insert-if-absent "in progress" record) 
 Q: Rolling out a breaking response change to millions of mobile clients?
 A: Prefer additive changes. If you must break, version with a prefix (`/v2/posts`) or a header, run v1 and v2 side by side, track traffic per version, and set a deprecation window. Old app versions never disappear, so enforce a minimum-supported-version upgrade.
 
+Q: You ship v2 of an API. How do you avoid maintaining two backends for v1 and v2?
+A: Implement v1 as a thin adapter that calls v2 and reshapes the response into the old format. One code path, so bug fixes land once; the cost is a long tail of adapter code until v1 is retired.
+
+Q: How do you actually get mobile users off v1 when you can't force app updates?
+A: The app sends its version on every request; track v1 traffic, and once it's under ~1%, a min-supported-version check at launch shows a blocking "update to continue" screen. Without it, old apps just break at the cutoff.
+Staff: Ship the min-version check in v1 from day 1; apps without it can never be forced to upgrade.
+
 ## REST vs RPC vs GraphQL vs WebSocket
 Q: Adding instant DMs to a REST app: what do you use, and what do you give up?
 A: Keep REST for sending and history; add WebSockets (or SSE if push is one-way) for delivery. You give up statelessness: sticky routing, a connection registry, scaling on connections per box, reconnect plus replay from the last sequence number, and no HTTP caching.
@@ -48,3 +55,10 @@ A: Keep REST for sending and history; add WebSockets (or SSE if push is one-way)
 Q: Two concrete costs of GraphQL over REST?
 A: N+1 resolver queries (fix with DataLoader batching), and losing HTTP/CDN caching because everything is a POST to one endpoint. Also: arbitrary queries need depth and cost limits, and rate limiting gets harder.
 Staff: For one screen's five calls, a BFF or aggregated endpoint is often cheaper than adopting GraphQL.
+
+Q: GraphQL sends everything as a POST to one endpoint. How do you get CDN caching back?
+A: Persisted queries: the client sends a hash of a pre-registered query as a GET, so CDNs and HTTP caches can key on the URL. It also blocks arbitrary queries from untrusted clients.
+
+Q: A deploy restarts half your WebSocket chat servers. What happens, and how do you make it smooth?
+A: Connections can't move, so those users disconnect and reconnect elsewhere with jittered backoff, updating the connection registry, then replay from their last per-conversation sequence number. Drain instead of hard-killing: stop routing new connections and send close frames spread over minutes to avoid a reconnect herd.
+Staff: Replay only works if messages are durably stored before delivery.
