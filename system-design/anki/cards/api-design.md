@@ -4,6 +4,12 @@
 Q: How deep should you nest REST resources, e.g. users → posts → comments?
 A: One level at most: `/posts/{id}/comments`. Anything with its own global id stays top-level (`GET /posts/{id}`), so clients never need the parent's id just to fetch it. Deep paths lock you into one access pattern.
 
+Q: A push notification links to comment 987. What URL fetches it, and why not /users/{u}/posts/{p}/comments/987?
+A: `GET /comments/987`. The comment has its own id, and the notification doesn't carry the post or its author, so a deep path forces extra lookups. The comment-to-post link lives in the data (comments.post_id), not the URL.
+
+Q: Comments are top-level at /comments/{id}. Then what are /posts/{id}/comments for?
+A: Listing and creating a post's comments: `GET` filters WHERE post_id = id, and `POST` takes post_id from the path and the author from the token. Nest one level, only where the parent is the real context.
+
 Q: Cancel an order: DELETE, PATCH status, or POST /orders/{id}/cancel?
 A: Not DELETE, because the order still exists, now cancelled. `POST /orders/{id}/cancel` fits a state transition with business rules and side effects (refund, restock, 409 if shipped), while a generic PATCH lets clients set arbitrary statuses. Action endpoints can be synchronous.
 
@@ -25,6 +31,9 @@ A: A JWT is verified statelessly (signature only, no lookup) but can't easily be
 ## Idempotency and versioning
 Q: Idempotency key on POST: who generates it, and what does a retry get back?
 A: The client generates a UUID once per user action and reuses it on every retry. The server stores key → response (per user, TTL around 24h) and returns the original response, with the same resource id, instead of creating a duplicate.
+
+Q: The first POST succeeded but the phone timed out. Why not answer the retry with an "already created" error?
+A: The phone never saw the first response, so an error makes the app show "failed" with no post id, and the user posts again. Replay the stored original response (same 201 and post id) so the retry looks like the first success.
 
 Q: Two retries with the same idempotency key arrive at the same time. What happens?
 A: A unique constraint on the key (or an insert-if-absent "in progress" record) lets exactly one proceed. The other waits for the stored response or gets a 409, so there's never a double create.

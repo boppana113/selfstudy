@@ -54,3 +54,46 @@
 - Habit (RECURRING; same root as kafka "fix before consequence" and long-running-tasks "reasoning unsaid"): naming the fix and stopping, without the cost or what the user gets ("the cost of this, however, is more added complexity"; Q4 never said what the retry returns). Bottom line came late in Q3 and Q6.
 - Rewrite (Q2): "I'd use cursor pagination, not offset. Offset has two problems on a feed. The database has to scan and throw away every skipped row, so deep pages get slow. And new posts shift everything down, so the user sees duplicates. With a cursor, each response returns an opaque cursor, which is basically the last post's timestamp and id. The next request says 'give me 20 older than that', which is an index seek, and it stays stable as new posts come in. The cost is no jumping to page 50, and nobody does that on a feed."
 - Did well: no "I'm not sure" this session; committed to an answer every time; Q4 opened with its bottom line.
+
+## Drill: 2026-11-06 (partial, 3 of 6 rounds; not scored; Below mid 0 · Mid 3 · Senior 0 · Staff 0)
+### Questions
+**R1 (Failure mode) 🟦 Mid**: Your Instagram feed uses offset pagination, 20 per page. A user sees a post on page 3 they already saw on page 2. Why, and what would you change?
+- Follow-up: What exactly goes inside the cursor, and what query does the server run for the next page?
+- You said: New posts push older ones down between page loads, so the user sees duplicates; switch to cursor; cost is no count and no jumping ahead. Follow-up: opaque cursor, but guessed the server "applies some offset" from the last cursor.
+- Strong answer: "New posts land at the top between page loads and shift everything down, so the user sees the same post twice, and deep offsets also scan and discard every skipped row. I'd return an opaque cursor encoding the last post's created_at and id. The next query is WHERE (created_at, id) < cursor ORDER BY created_at DESC, id DESC LIMIT 20: an index seek at any depth, no offset, stable under inserts. The cost is no jumping to page N."
+- Staff adds: sign the cursor against tampering; ranked feeds page through a precomputed feed list or snapshot id.
+
+**R2 (Spot the flaw) 🟦 Mid**: What's wrong with these endpoints?
+```
+GET    /users/{user_id}/posts/{post_id}/comments/{comment_id}
+POST   /users/{user_id}/posts/{post_id}/comments
+         body: { "user_id": 42, "text": "nice!" }
+DELETE /orders/{order_id}        # cancels the order
+```
+- Follow-up: A push notification links to comment 987. What does the client need to know to fetch it, and how would you lay out the URL?
+- You said: user_id in the body lets anyone comment as anyone, take it from the bearer token; cancel should be POST /orders/{id}/cancel. Said the first path looked fine; with the hint, didn't see the issue.
+- Re-answer (cancel, design-choice frame): reasoning came through (business-rule check, error if shipped, switch to DELETE only to erase the record); skipped the cost slot.
+- Strong answer: "Three problems. A comment has its own id, but this path makes the client know the post author and post first, which a notification doesn't carry, so I'd use GET /comments/987 and nest one level only for lists and creates: POST /posts/{id}/comments. user_id in the body lets anyone comment as anyone, so the author comes from the token. And cancel isn't a delete; the order still exists, cancelled, with a refund, a restock, and a 409 if it shipped, so POST /orders/{id}/cancel."
+- Staff adds: make cancel idempotent; deep paths hard-code one access pattern and break when ownership changes.
+
+**R3 (Failure mode) 🟦 Mid**: The phone times out on "Post" and retries with the same idempotency key, but the first request went through. What does the server send back on the retry, and what if the retry arrives while the first is still processing?
+- Follow-up: The phone never saw the first response. If the retry gets an "already created" error, what does the app show, and what should the server return instead?
+- You said: The key blocks the duplicate; the user sees "post already created." Read the concurrent case as the retry arriving first. Follow-up: thought "already created" is acceptable.
+- Strong answer: "The retry gets the original response replayed: the same 201 and post id. The phone never saw the first response, so an error would make the app say 'failed' and the user would post again. For the concurrent case, the first request inserts the key as in_progress before doing the work, under a unique constraint on user and key, so the second insert fails and it returns a 409 'still processing' or waits and replays. Otherwise both check, find nothing, and both create a post."
+- Staff adds: per-user keys with ~24h TTL; same key with a different body → 422; in_progress timeout for crashed requests.
+### Gap to senior
+- Cursor query has no offset: WHERE (created_at, id) < cursor, an index seek; id is the tiebreaker
+- Nesting: anything with its own id is top-level (GET /comments/987); nest one level only for list/create; the relationship lives in the FK (comments.post_id), not the URL
+- Idempotent retry replays the original response (same 201 + id), not an "already created" error
+- Concurrent retries: insert the key as in_progress first, under a unique constraint; second gets 409 or waits
+- Name the cost in design-choice answers (cancel endpoint)
+### Resume
+- Tomorrow: re-answer R3 follow-up with the unsure frame, then R4–R6 (GraphQL concrete costs, versioning + deprecation for mobile, WebSocket costs for DMs), then score the full drill.
+### Hold-in-mind questions
+- A notification links to comment 987. What URL fetches it, and why not nest it under the post?
+- On a retry with the same key, what exactly does the server return, and why not an error?
+### Delivery
+- Habit (RECURRING): unsure frame opened, then a guess instead of reasoning. R1 follow-up: "I'm not sure... it would probably take your last cursor ID, apply some offset"; R3: "I'm not sure what the right behavior is, but I would imagine an already created message is acceptable."
+- Rewrite (R3): "The first request already created the post, so the retry shouldn't create another one. The server looks up the key and replays the stored response, the same 201 and post id. That matters because the phone never saw the first response; if I sent an error, the app would say the post failed and the user would tap again. For the concurrent case, the first request writes the key as in progress before it does any work, with a unique constraint, so the second one fails that insert and gets a 409, retry shortly."
+- Did well: R1 went cause → what the user sees → fix → cost, unprompted; R2 named the impersonation consequence for user_id in the body.
+- Frame reminders: on (re-answers: 1)
