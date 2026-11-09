@@ -38,12 +38,28 @@ A: Shadow tells you it works (serving correctness, latency, skew, disagreement w
 Q: What can a shadow deployment never tell you?
 A: The effect of acting: customers churning after false declines, fraudsters adapting, review-queue load.
 
+Q: Card fraud, 10M txns/day at 0.1% fraud. The model flags 20k, 8k are fraud. Auto-decline all of them?
+A: No. Precision is 40% and recall is 80%, so 12,000 good customers a day get declined at checkout and some churn. Say that user impact before proposing a fix.
+
+Q: Instead of one decline threshold, how should a fraud system act on scores?
+A: In bands: auto-decline the top scores (precision 90%+), step-up auth (3-D Secure, SMS code) for the middle, an analyst queue sized to team capacity for borderline cases, approve the rest.
+
+Q: How do you pick the fraud decline threshold? Does AUC pick it?
+A: From expected cost: decline when P(fraud) × amount beats the cost of a false decline, so big purchases get declined at lower scores. AUC summarizes all thresholds and is for comparing models, not picking an operating point.
+
 Q: Why can't a canary measure accuracy?
 A: It's too small a slice to be statistically powered. It watches latency, errors, and block rate.
 
 ## LLM variant
 Q: Building a support bot on an LLM API: what replaces training and data, and what gets harder?
 A: Training becomes model selection (compare 2–3 models on your own eval set). Data becomes retrieval: chunking, indexing, and ACLs so customers never see internal docs. Evaluation becomes the hardest stage.
+
+Q: Internal assistant over Confluence and Slack: how do you stop it leaking private channels?
+A: Store each chunk's source ACL at index time and filter retrieval by the asking user's groups before anything reaches the prompt. A system-prompt "don't reveal" rule is not access control.
+Staff: Re-index incrementally, including deletes and permission changes.
+
+Q: Retrieval vs fine-tuning for company knowledge: why retrieval?
+A: Docs change daily, retrieval can cite sources, fine-tuning doesn't reliably teach facts, and it can't enforce per-user permissions. Fine-tune for format or style, not facts. (Many hosted APIs do offer fine-tuning, so "no weights" isn't the reason.)
 
 Q: How do you evaluate an LLM support bot?
 A: Offline: a golden set of real tickets, scored by an LLM judge calibrated against humans for faithfulness and appropriate "I don't know". Online: resolution and escalation rate. Pin the model version and rerun evals on every prompt or model change.

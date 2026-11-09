@@ -67,3 +67,43 @@ Goal: flag harmful posts (~0.5% of all posts)
 - Rewrite (R4): "So with an API model, training mostly goes away. I'm choosing a model, not building one, so I'd compare two or three on my own eval set for quality, latency, and cost per conversation. Data doesn't disappear, though; it becomes retrieval. How I chunk and index the help docs, and making sure a customer can't pull internal docs. The stage that gets hardest is evaluation: a golden set of real tickets, an LLM judge I've checked against humans, and online I'd watch resolution and escalation rate. Then safety, like prompt injection and made-up refund policies, and I'd pin the model version and rerun evals on every change."
 - Did well: clear signposting and walking through items in order (R2 "first, let's start with shadow"; R3 step by step).
 - Frame reminders: on (re-answers: 3)
+
+## Drill: 2026-11-08 (score 50%; Below mid 0 · Mid 2 · Senior 0 · Staff 0)
+Review mode, 2 rounds.
+### Questions
+**R1 (Scenario) 🟦 Mid**: You're designing an internal assistant that answers employee questions from Confluence and Slack using a hosted LLM API. Compared to a classic ML design, what takes the place of training and data collection, and which stage becomes the hardest?
+- Follow-up: Fine-tune on the docs or retrieve at query time? Which would you pick, and given Slack has private channels, what can go wrong?
+- You said: "Augmenting the LLM" with company data, then evals are hardest. Follow-up: retrieval at query time; fine-tuning is laborious and needs model weights. Skipped the private-channel part.
+- Re-answer: Reasoning came through ("docs and Slack change constantly"; switch to fine-tuning for a specific response format). Still no private-channel risk.
+- Strong answer: "Training turns into model selection, data turns into retrieval with access control, and evaluation becomes the hard part. I'd retrieve at query time because the docs change daily, retrieval can cite sources, and fine-tuning doesn't reliably teach facts. The big risk is permissions: every chunk carries its source's ACL at index time, and retrieval filters by the user's groups before anything reaches the prompt, so nobody gets a private exec channel quoted back. Eval is hardest because there's no single right answer: a golden set of real employee questions, an LLM judge checked against humans, scoring faithfulness and appropriate 'I don't know'."
+- Staff adds: incremental re-indexing including deletes and permission changes; pinned model version with evals rerun on every change; prompt injection planted in Slack messages.
+- Correction: "no weights, so no fine-tuning" is wrong; many hosted APIs offer fine-tuning. The real reasons are freshness, citations, facts, and per-user permissions.
+
+**R2 (Estimation) 🟦 Mid**: 10M transactions/day, 0.1% fraud. The model flags 20,000/day, 8,000 are fraud. Precision, recall, and is it good enough to auto-decline everything flagged?
+- Follow-up: That's 12,000 good customers declined daily. Instead of auto-declining, what would you do with the 20,000, and how would you set the threshold?
+- You said: 10,000 fraud; precision 8,000/20,000 = 40%; recall 8,000/10,000 = 80%; not good enough because of false flags. Follow-up: tune the threshold to raise precision without hurting recall much, "look at the AUC".
+- Re-answer: asked (failure-mode frame, say what the user sees); user skipped.
+- Strong answer: "Precision is 40% and recall is 80%, so 60% of declines hit real customers. That's 12,000 good people a day whose card fails at checkout, and some churn. So I wouldn't auto-decline everything. I'd act differently depending on the score: auto-decline the top band where precision is 90%+, send the middle band to a step-up check like 3-D Secure or an SMS code, send the next band to an analyst queue sized to team capacity, and approve the rest. I set the cutoffs from expected cost: decline when P(fraud) times amount beats the cost of a false decline, so a $2,000 laptop gets declined at a lower score than a $5 coffee."
+- Staff adds: fraudsters adapt to the threshold; random holdout for selective labels; monitor false-decline rate per merchant.
+- Correction: AUC summarizes all thresholds (for comparing models); the threshold is one point on the PR curve, picked by business cost.
+### Gap to senior
+- Data access control in LLM apps: ACL per chunk at index time, filter retrieval by the user's groups before the prompt (asked directly, skipped twice)
+- Say user impact unprompted: "12,000 good customers declined a day" (recurring across topics)
+- Fraud actions depend on the score: decline / step-up auth / review queue / approve, not one threshold
+- Threshold from expected cost (P(fraud) × amount vs cost of a false decline); AUC compares models, doesn't pick a threshold
+- What replaces training: model selection on your own eval set (quality, latency, cost per query)
+- Why retrieval over fine-tuning: freshness, citations, facts, permissions (not "no weights")
+### Staff stretch
+- Incremental re-indexing with deletes and permission changes; prompt injection via Slack
+- Fraudster adaptation; false-decline rate per merchant
+### Interview-ready lines
+- "I'd filter retrieval by the user's permissions at query time, so a private channel never reaches the prompt. A system-prompt rule isn't access control."
+- "At 40% precision, 12,000 good customers a day get declined, so I wouldn't auto-decline everything."
+- "Top scores get declined, the middle band gets a step-up check, and borderline cases go to analysts."
+- "I set the cutoff where P(fraud) times amount beats the cost of a false decline. AUC is for comparing models."
+- "Training turns into model selection, data turns into retrieval with access control, and evaluation becomes the hard part."
+### Delivery
+- Habit (RECURRING, 6th session): short conclusions with the reasoning and user impact unsaid, plus answering one half of a two-part question. "This model is not good enough because it falsely flags a lot of non-positive transactions." / follow-up in R1 dropped the private-channel half entirely.
+- Rewrite (R2): "Precision is 8,000 over 20,000, so 40%, and recall is 8,000 over 10,000, so 80%. The problem is the 60% that aren't fraud. That's 12,000 real customers a day whose card gets declined at checkout, and some of them leave. So I wouldn't auto-decline everything. I'd decline only the top scores, send the middle band to a step-up check like an SMS code, and put borderline ones in front of an analyst. And I'd set those cutoffs on dollars: decline when the probability times the amount is more than what a false decline costs us."
+- Did well: setup before every number in R2 ("0.1% of 10 million is 10,000"), with the formula said out loud; bottom line first in the R1 follow-up ("I'd start with retrieving at query time").
+- Frame reminders: on (re-answers: 1, one skipped by user)
