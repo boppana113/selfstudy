@@ -12,8 +12,14 @@ Q: 50k reads/s on a small hot set. Redis or Postgres replicas, and how many?
 A: Redis. One node does 100k+ ops/s, so one primary plus a failover replica covers it. Replicas would take 5–6 Postgres boxes at ~10k reads/s each and add replication lag.
 Staff: Protect against a cold cache with request coalescing and a DB sized to survive a few minutes without the cache.
 
-Q: How big can one modern server get?
-A: ~64–128+ cores, hundreds of GB up to several TB of RAM, and tens of TB of local NVMe. Many "big data" sets fit on one box.
+Q: How big can one cloud server get (memory, cores)?
+A: A standard large instance is ~128 vCPUs and 512 GiB RAM. Memory-optimized goes to 4 TB, and the biggest metal boxes hit 24 TB of RAM. Many datasets that sound "big" fit in one box's memory.
+
+Q: How much storage can one server hold?
+A: Up to ~60 TB of local SSD on storage-optimized instances, and ~336 TB of HDD on dense-storage ones. Object storage (S3) is effectively unlimited, at petabyte scale.
+
+Q: The old rule "shard at 100 GB": still true?
+A: No, it's outdated. Modern boxes hold TBs on disk and in memory, so shard on measured write throughput or storage limits, not a fixed size.
 
 Q: One Postgres/MySQL instance: rough limits for writes, reads, and storage?
 A: ~10–20k simple writes/s, more reads when the working set is in memory, and comfortably several TB (tens of TB with care). Shard when writes or storage pass that, not before.
@@ -27,8 +33,8 @@ A: ~1–10k requests/s for typical handlers (depends on CPU work per request). M
 Q: One Kafka broker: throughput and end-to-end latency?
 A: Hundreds of MB/s, which is up to ~1M small messages/s. End-to-end latency is single-digit ms. Retention of days to weeks and TBs per broker is normal.
 
-Q: Network bandwidth inside a data center, and what does 10 Gbps mean in bytes?
-A: 10–25 Gbps per server is common. 10 Gbps ≈ 1.25 GB/s, so 1 Gbps ≈ 125 MB/s. Divide bits by 8.
+Q: Network bandwidth inside a data center, and what does it mean in bytes?
+A: ~25 Gbps is common for standard instances, and 50–100+ Gbps on high-performance ones. Divide by 8: 25 Gbps ≈ 3 GB/s, 10 Gbps ≈ 1.25 GB/s.
 
 ## Latency ladder
 Q: Rough latencies: memory, SSD, in-DC round trip, cross-region round trip?
@@ -40,8 +46,8 @@ A: ~80–100 ms per round trip, so 300–400 ms before anything renders. A CDN o
 Q: HDD random seek vs SSD random read?
 A: HDD ~10 ms, SSD ~100 µs (NVMe can be ~20 µs). About 100× apart, which is why random-access workloads live on SSD.
 
-Q: Round trip between two availability zones in the same region?
-A: ~1–2 ms. Cheap enough for synchronous replication across AZs; cross-region (50–150 ms) usually isn't.
+Q: Round trip within one AZ vs between AZs in the same region?
+A: Within an AZ, under 1 ms. Across AZs, ~1–2 ms. Cheap enough for synchronous replication across AZs; cross-region (50–150 ms) usually isn't.
 
 Q: Time to read 1 MB sequentially from memory, SSD, and HDD?
 A: Memory ~10–50 µs, SSD ~0.2–1 ms, HDD ~5–20 ms.
