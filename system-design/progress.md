@@ -15,6 +15,7 @@ Updated automatically by `/sd-pretest`, `/sd-drill`, and `/sd-mock`. Safe to edi
 | ml-delivery-framework | studied | 44% | 2026-11-04 | 38% | 2026-11-06 | LLM variant (model selection replaces training, data → retrieval+ACLs, eval hardest, cost/query, safety), imbalanced metrics (trivial-baseline number, PR-AUC), canary = ops health not accuracy, fraud selective labels + dollar-weighted objective |
 | kafka | drilled | - | 2026-11-06 | 58% | 2026-11-09 | fan-out = consumer group per team + reset offsets by timestamp (not a new topic), hash(key) mod N remaps keys on repartition, poison message: max.poll rebalance ping-pong + retry topic/DLQ (log-and-commit = silent loss), consumers > partitions idle (say unprompted), idempotency at provider not local check, say what the user sees, min.insync cost = availability |
 | api-design | drilled | 44% | 2026-11-07 | 58% | 2026-11-10 | say user impact + cost unprompted (recurring), concurrent retries: insert key in_progress first + 409, cursor = index seek no offset, own id → top-level (nest only list/create), GraphQL: N+1/DataLoader + persisted queries + depth limits, versioning: additive first + v1 adapter over v2 + min-version forced upgrade |
+| numbers | pretested | 44% | - | - | - | single-box limits (Postgres ~10k TPS, Redis 100k+), sharding = writes/storage not reads, peak 2–3× with reason, per-year conversion + what it decides, CDN static only vs collapse calls/region |
 
 ## Mock Interviews
 
