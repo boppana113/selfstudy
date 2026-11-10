@@ -36,6 +36,22 @@ A: Hundreds of MB/s, which is up to ~1M small messages/s. End-to-end latency is 
 Q: Network bandwidth inside a data center, and what does it mean in bytes?
 A: ~25 Gbps is common for standard instances, and 50–100+ Gbps on high-performance ones. Divide by 8: 25 Gbps ≈ 3 GB/s, 10 Gbps ≈ 1.25 GB/s.
 
+Q: What are the two triggers for sharding a database, with numbers?
+A: Write throughput past ~10k writes/s on one primary, or data past several TB per box (backups, restores, and replica rebuilds get slow, then disk runs out). Check both every time; reads alone never justify sharding.
+
+Q: Orders DB at 3k writes/s and 1.5 TB, growing 50%/year. When must you shard, and what do you do meanwhile?
+A: Writes hit ~10k in about 3 years (3k → 4.5k → 6.75k → 10k); storage only reaches ~5 TB. Alert at 70% of each, archive old orders, scale up, and pick the shard key now.
+Staff: Native table partitioning by month first; Citus/Vitess so resharding isn't hand-built.
+
+Q: 80k reads/s on a 5 GB hot set. How many Redis nodes?
+A: One node is ~100k ops/s, so 80k is 80%, too hot. Two shards at ~40k each, each with a failover replica: four nodes. Postgres replicas would take 8+ boxes at ~10k reads each.
+
+Q: Redis dies under 80k reads/s. What happens?
+A: 80k reads land on a Postgres sized for ~10k, so it saturates: queries queue, time out, and users see errors, not just slower pages. Prevent it with a failover replica per Redis primary and request coalescing on misses.
+
+Q: At what read rate do you add a cache, and what do you do past ~100k reads/s?
+A: Past ~10k reads/s (one Postgres box), or for a small hot set, add a cache; at 500 reads/s skip it unless the latency budget is tight. Past ~100k, shard Redis (Redis Cluster), not add DB replicas, which top out ~10k each.
+
 ## Latency ladder
 Q: Rough latencies: memory, SSD, in-DC round trip, cross-region round trip?
 A: Memory ~100 ns, SSD ~100 µs, in-DC round trip ~0.5 ms, cross-region 50–150 ms (US East to Europe ~80–100 ms).
@@ -55,6 +71,12 @@ A: Memory ~10–50 µs, SSD ~0.2–1 ms, HDD ~5–20 ms.
 Q: Indexed lookup latency in Postgres vs a Redis GET, measured from the app?
 A: Postgres ~1–5 ms (index in memory, plus the network hop). Redis under 1 ms. A cache saves milliseconds per call and offloads the DB.
 
+Q: A service moves from your region to another (US East → EU West). 6 sequential calls per page: before vs after?
+A: In-DC 6 × 0.5 ms ≈ 3 ms; cross-region 6 × 80–100 ms ≈ 500 ms, ~200× worse, so every page is half a second slower. Batch or parallelize the calls, cache locally, lazy-load, then co-locate.
+
+Q: Does a CDN help a URL shortener's redirect API?
+A: Yes: a short code's target never changes, so redirects cache at the edge like static files. 301 lets browsers and the CDN cache it (cheap, but you lose click counts); 302 with a short TTL keeps analytics.
+
 ## QPS from DAU
 Q: 100M DAU × 5 posts/day. Average and peak write QPS?
 A: 500M/day ÷ ~100k seconds ≈ 5k/s average. Plan for 2–3× at peak (evening spike), so 10–15k/s, which is near one primary's write limit.
@@ -65,7 +87,17 @@ A: Day 86,400 ≈ 100k. Month ≈ 2.5M. Year ≈ 30M (31.5M exact).
 Q: Quick conversion: 1M requests/day is how many per second?
 A: ~12/s (1M ÷ 86,400). So 1B/day ≈ 12k/s, and 100M/day ≈ 1.2k/s.
 
+Q: When sizing shards for 40k writes/s peak at ~10k per box, how many shards?
+A: About 6, not 4: size at ~70% utilization for headroom. And say why peak is 2–3× average (the evening spike).
+
 ## Storage estimation
+Q: Does the peak multiplier apply to yearly storage?
+A: No. Peak applies to rates (QPS, bandwidth); stored totals use the average. 1 TB/day average is 365 TB/year.
+
+Q: Chat: 50M DAU × 40 msgs × 500 B. What does the storage number decide?
+A: 1 TB/day = 365 TB/year, about 100× what one Postgres box holds, so storage, not writes, forces sharding: a wide-column store (Cassandra/ScyllaDB) partitioned by conversation_id, old messages tiered to S3.
+Staff: RF=3 makes it ~1.1 PB raw per year.
+
 Q: 500M posts/day, 1 KB text each, 1 in 10 has a 2 MB photo. Storage per year, and where does it live?
 A: Photos: 50M × 2 MB = 100 TB/day ≈ 36 PB/year, vs under 200 TB/year of text. Photos go in blob storage behind a CDN; the DB holds text and a photo pointer.
 
