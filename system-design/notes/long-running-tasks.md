@@ -9,7 +9,7 @@
 - 🟡 (2026-11-04 LRT drill: HOL unprompted, replay + partition cap after follow-up; 2026-11-04, kafka drill: offset watermark/HOL + crash replay correct after hint; partition cap still not volunteered) SQS vs Kafka for jobs: no knowledge of Kafka offsets/partitions, head-of-line blocking, partition-capped parallelism
 - 🟡 (2026-11-03: scaling metric fixed, alarm still wrong) Autoscaling: said raw queue depth; better is backlog per worker + age of oldest message
 - ✅ (2026-11-03) Lambda 15-min limit vs 10-min jobs not considered
-- Estimation: jumped to a number without math (fixed when prompted, Little's Law); poll-load math wrong (should be 1,667/30 ≈ 55 QPS)
+- ✅ (2026-11-09) Estimation: jumped to a number without math (fixed when prompted, Little's Law); poll-load math wrong (should be 1,667/30 ≈ 55 QPS)
 - ✅ (2026-11-03, presigned upload) Missed in initial design: presigned upload to blob storage, how client learns completion
 ### Solid
 - Async pattern: job id + DB row + queue + worker pool; why not in-request
@@ -132,9 +132,9 @@ Short drill: 4 rounds, one per hold-in-mind question.
 - Staff adds: progress-based heartbeats (frames done, not just alive); quarantine poison inputs.
 ### Gap to senior
 - Gating the notification: single conditional UPDATE + rows affected = 1, not "ACID transaction" / read-then-write
-- Kafka specifics: one consumer per partition per group; parallelism = partition count (~2,400); max.poll.interval.ms rebalance
+- 🟡 (2026-11-09: partition cap volunteered, max.poll consequence named; mechanisms still vague, no decision-first) Kafka specifics: one consumer per partition per group; parallelism = partition count (~2,400); max.poll.interval.ms rebalance
 - Paging: lead with age of oldest message + why (worst-case wait = SLA); max-runtime cap for hung-but-heartbeating workers
-- Estimation: don't double an already-peak rate; say the intermediate number; do the headroom arithmetic out loud
+- ✅ (2026-11-09) Estimation: don't double an already-peak rate; say the intermediate number; do the headroom arithmetic out loud
 ### Staff stretch
 - Outbox / email idempotency key for the commit-then-send gap
 - Kafka intake log → bridge to queue; KIP-932 share groups
@@ -149,3 +149,81 @@ Short drill: 4 rounds, one per hold-in-mind question.
 - Rewrite (R2): "One email is guaranteed by a conditional update. Here's the timeline. Worker A pauses in GC, its lease expires, and the message reappears. Worker B picks it up and transcodes. Outputs go to deterministic keys, so if A wakes up and uploads too, it's just an overwrite. When each one finishes, it runs update jobs set completed where id is the job and status is processing. The database applies that atomically, so exactly one gets one row back. That worker sends the email, and the other gets zero rows and exits quietly. Then the message is deleted last."
 - Did well: opened R1 and R3 with the method/conclusion; R1 re-answer used the whole frame.
 - Frame reminders: on (re-answers: 1)
+
+## Drill: 2026-11-09 (score 58%; Below mid 0 · Mid 5 · Senior 1 · Staff 0)
+New scenario: report exports (~10-min PDF build, email a link).
+### Questions
+**R1 (Failure mode) 🟦 Mid**: Report export worker's lease expires mid-job, a second worker picks it up, both finish within the same second. Walk through what happens and what makes sure the user gets exactly one email.
+- Follow-up: Both alive, both see the PDF exists. What exact DB operation decides who emails, and does the email go before or after it?
+- You said: Reframed as worker A emails then crashes before the DB update → user sees a second email; fix = check output exists, skip the PDF, update DB. Follow-up: conditional update in-progress → complete, only one succeeds; email goes *before* the update; email service gets an idempotency key on job ID.
+- Strong answer: "Both workers upload to the same deterministic key, so the second upload is a harmless overwrite. Then each runs update jobs set completed where id is the job and status is processing. The database applies that atomically, so exactly one gets one row back. That worker sends the email, keyed on job ID so its own retry can't double-send. The other gets zero rows and exits quietly. If the email went before the update, both would send and the update would protect nothing."
+- Staff adds: commit-then-send gap → outbox row in the same transaction or sweeper for completed-but-not-notified.
+
+**R2 (Scale it up) 🟦 Mid**: Team runs Kafka; export topic has 12 partitions; peak needs ~500 concurrent. What happens when you scale consumers up?
+- Follow-up: At 500 partitions, each consumer on a 10-min export, max.poll.interval.ms default 5 min: what happens at minute 5? Can a spare consumer help a partition stuck on a poison export?
+- You said: Partition cap unprompted: one consumer per partition → only 12 at a time. Fix: drain, repartition to 500, add spare consumers for poison jobs. Follow-up: past the poll interval Kafka reassigns the job; spares can't help "because they'll still fail"; move poison to a DLQ.
+- Strong answer: "Consumers past 12 sit idle, because each partition has exactly one owner in a group, so exports queue behind 12 workers and wait times climb. Repartitioning to 500 doesn't fix it: a 10-minute job blows max.poll.interval, the consumer is kicked, the group rebalances, and the job replays from the last commit, forever. Spares can't help a stuck partition because they can't read it at all. Long independent jobs want per-message leases and acks, so I'd move this to SQS."
+- Staff adds: if Kafka is mandatory, raise max.poll above p99 or pause/resume with a processing thread; Kafka intake → bridge to queue; KIP-932 share groups.
+
+**R3 (Estimation) 🟩 Senior**: Export service on SQS, one PDF per worker. Peak 2 req/s, 10-min average. Workers at peak, and how many to provision?
+- Follow-up: What is the 20% for, and what does 1,440 workers mean for the design or cost?
+- You said: Little's Law, 2 × 600 = 1,200, +20% = 1,440. Follow-up: headroom for poison jobs; steady state → Fargate; spiky → switch to Lambda.
+- Strong answer: "2 per second times 600 seconds is 1,200 in flight, so 1,200 busy workers at peak. I'd add about 20% for long-tail jobs, retries, and scale-up lag, so roughly 1,450. That's a big steady bill, so I'd run them on spot, which is safe because retries are idempotent. Not Lambda: a 10-minute average puts the p99 near the 15-minute cap, and default account concurrency is 1,000."
+- Staff adds: size on p90 duration if the tail is fat; spot ~70% cheaper.
+
+**R4 (Spot the flaw) 🟦 Mid**: What's wrong with this export pipeline ops config?
+```
+1. Autoscale workers on backlog per worker (target 1 msg/worker)
+2. Page on-call when total queue depth > 5,000
+3. Workers heartbeat every 60 s while building a PDF; no max runtime
+4. maxReceiveCount = 5, then the message goes to the DLQ
+5. Scale-in: terminate any worker when backlog per worker < 0.5
+```
+- Follow-up: 10 workers hang, depth sits at 300, some users waiting 40 min: does step 2 page? Step 5 kills a worker 9 min into a PDF: what happens to the job and the user?
+- You said: Step 1 target too low (1.2); step 2 OK; step 3 needs a max runtime ~20 min; step 5 scale in below 1.2. Follow-up: step 2 won't page, switch to "long-running job on the queue"; scale in only idle workers. Re-answer on step 5 skipped by user.
+- Strong answer: "Step 2 pages on depth, which says how much is waiting, not how long, so 10 hung workers and a 40-minute wait never fire it. I'd page on ApproximateAgeOfOldestMessage against the SLA. Step 3: a hung worker that keeps heartbeating holds its lease forever, so the receive count never climbs and step 4's DLQ never fires; a runtime cap around 2× p99 counts as a failed attempt. Step 5 kills busy workers: the lease expires, another worker starts over, the user waits 20 minutes instead of 10, and we wasted 9 minutes of compute. I'd use scale-in protection while busy, with separate scale-in and scale-out thresholds. Step 1 is fine."
+- Staff adds: ECS task scale-in protection toggled by the worker; cooldown/hysteresis; alarm on DLQ depth.
+
+**R5 (Explain it) 🟦 Mid**: In 60 s at the whiteboard: once an export worker has built the PDF, what are its steps to finish the job, in order, and why is each in that position?
+- Follow-up: Where does deleting the SQS message go, and what does a worker do differently when its conditional update returns 0 rows?
+- You said: S3 → conditional update in-progress → completed → notification with job ID as idempotency key. Follow-up: delete the SQS message last (queue owns the job until then); a 0-row worker still sends the notification.
+- Strong answer: "Upload to a deterministic key like exports/{job_id}.pdf, so a duplicate is a harmless overwrite. Then set completed where status is processing. If I get one row back, I won, so I send the email keyed on job ID. If I get zero, someone else won and owns the email, so I stay quiet. I delete the message last, so a crash at any earlier step just lets it reappear and retry safely."
+- Staff adds: crash between commit and email → outbox in the same transaction, or a sweeper.
+
+**R6 (Tradeoff duel) 🟦 Mid**: "We already run Kafka with plenty of ops expertise. Why add SQS for exports?" Defend it in 45 s.
+- Follow-up: They raise max.poll.interval.ms to 30 minutes. Is Kafka fine now?
+- You said: Kafka suits jobs under 5 min; consumer times out before committing, job retries and fails, ends in a DLQ; SQS handles long jobs with Fargate or Lambda. Follow-up: messages come in too quickly, partitions can only handle so many, never drained in time.
+- Strong answer: "I'd still use SQS. Kafka commits one offset per partition, so a 10-minute export blocks the commits behind it, and a crash replays all of them. Each partition has one consumer per group, so parallelism equals the partition count: 1,200 concurrent exports means 1,200 partitions. Raising max.poll fixes neither. SQS gives each job its own lease and ack, and I scale by adding workers. The cost is one more system to run; I'd use Kafka if these were short, ordered events."
+- Staff adds: Kafka as intake log bridged to SQS; KIP-932 share groups. Kafka has no built-in DLQ.
+### Gap to senior
+- The 0-row worker sends no email; 1 row affected is the permission to send (backwards in R1 and R5). Update before email, never after
+- Page on ApproximateAgeOfOldestMessage (3rd miss) and say why; runtime cap is what makes the DLQ fire for hung-but-heartbeating workers
+- Kafka for jobs: lead with "I'd still use SQS," then precise mechanisms (1 consumer/partition → parallelism = partitions; per-partition offset → HOL + replay; max.poll → rebalance/replay loop, no built-in DLQ)
+- Scale-in: state the consequence (wasted compute, user waits 2×), then protect busy workers
+- Headroom = long tail + scale-up lag; no Lambda for ~10-min jobs (15-min cap vs p99, 1,000 default concurrency)
+### Staff stretch
+- Outbox / sweeper for the commit-then-send gap
+- Spot instances because retries are idempotent; size on p90 for fat tails
+- ECS scale-in protection + scale-in/out hysteresis
+- Kafka intake → SQS bridge; KIP-932
+### Now solid
+- Little's Law estimation: no doubling, intermediate number said, headroom arithmetic right
+- Partition cap volunteered unprompted
+- Completion order: S3 → conditional update → email → delete message last
+- Consequence before fix in R1 (user sees a second email)
+### Interview-ready lines
+- "One row back means I won, so I send the email. Zero means someone else did, so I stay quiet."
+- "I page on age of the oldest message, because that's the longest any user is waiting. And I cap runtime so hung jobs end up in the DLQ."
+- "I'd still use SQS: one consumer per partition caps parallelism, and per-partition offsets mean one slow job blocks the commits behind it."
+- "Killing a busy worker wastes its compute and doubles the user's wait, so I protect busy workers on scale-in."
+- "About 20% headroom for long-tail jobs and scale-up lag. A p99 near Lambda's 15-minute cap rules it out."
+### Hold-in-mind questions
+- Your conditional update returns 0 rows. What do you do, and why?
+- What do you page on for a job queue, said bottom line first with the reason?
+- "We already run Kafka." Defend SQS in three sentences, decision first.
+- Scale-in fires while a worker is 9 minutes into a job. What happens, and the fix?
+### Delivery
+- Habit (2nd LRT drill in a row): vague words where the mechanism belongs ("change our metric to long-running job on the q", "partitions can only handle so many messages", "optimal cost savings"). R6 buried the bottom line.
+- Rewrite (R6): "I'd still use SQS, for two reasons. First, Kafka commits one offset per partition, so if one export takes 10 minutes, I can't commit the jobs behind it even when they finish, and a crash replays all of them. Second, each partition has one consumer, so parallelism equals the partition count. 1,200 concurrent exports would need 1,200 partitions. SQS gives each job its own lease and ack, and I scale by adding workers. The cost is one more system to run. If these were short, ordered events, I'd use Kafka."
+- Did well: R1 consequence before fix; R3 full estimation frame; R5 signposted steps.
+- Frame reminders: on (re-answers: 1, skipped by user)
