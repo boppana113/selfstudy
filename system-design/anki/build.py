@@ -5,7 +5,9 @@ Card file format (one file per topic slug):
     # Kafka                      <- topic deck name
     ## Consumer groups           <- subtopic deck name
     Q: question (can span lines, ``` blocks allowed)
-    A: answer
+    A: the pick and its cost, 1-2 sentences
+    Why: a concrete walkthrough (one request, one user, real numbers)
+    Flip: optional, when you'd choose differently
     Staff: optional stretch line, shown under the answer
 
 Writes system-design.txt next to this script. Import it in Anki with
@@ -47,10 +49,10 @@ def parse(path):
             topic = line[2:].strip()
         elif line.startswith("## "):
             sub = line[3:].strip()
-        elif m := re.match(r"(Q|A|Staff):\s?(.*)", line):
+        elif m := re.match(r"(Q|A|Why|Flip|Staff):\s?(.*)", line):
             field = m.group(1)
             if field == "Q":
-                card = {"slug": slug, "topic": topic, "sub": sub, "Q": "", "A": "", "Staff": ""}
+                card = {"slug": slug, "topic": topic, "sub": sub, "Q": "", "A": "", "Why": "", "Flip": "", "Staff": ""}
                 cards.append(card)
             card[field] = m.group(2)
         elif card is not None and field:
@@ -62,6 +64,10 @@ def row(card):
     deck = "::".join(p for p in (ROOT_DECK, card["topic"], card["sub"]) if p)
     guid = hashlib.sha1(f'{card["slug"]}|{card["Q"].strip()}'.encode()).hexdigest()[:16]
     back = to_html(card["A"])
+    if card["Why"].strip():
+        back += "<br><br><b>Why:</b> " + to_html(card["Why"])
+    if card["Flip"].strip():
+        back += "<br><br><b>Flip it when:</b> " + to_html(card["Flip"])
     if card["Staff"].strip():
         back += '<br><br><i style="opacity:.7">Staff: ' + to_html(card["Staff"]) + "</i>"
     fields = [deck, guid, to_html(card["Q"]), back, f'sd::{card["slug"]}']
