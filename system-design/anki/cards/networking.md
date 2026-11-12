@@ -49,7 +49,29 @@ A: L7 terminates TLS and parses HTTP/2, so it adds CPU, a hop of latency, and an
 Why: Picture an L7 proxy in the path: every request is decrypted, parsed, re-encrypted, and forwarded, ~1 ms and a fleet of proxies to run. Client-side balancing: the client gets a list of backends from service discovery and round-robins streams across them, no middle box. MAX_CONNECTION_AGE=5m: the server politely closes each connection after 5 minutes, the client reconnects, the L4 balancer picks again, and within 5 minutes of a scale-out load is even.
 Staff: Alert on per-instance request rate, not connection count, to catch this.
 
+Q: Who sets MAX_CONNECTION_AGE for gRPC, and to what?
+A: The server, about 5 minutes plus a grace period, so you don't need control of the clients. Client-side balancing is the fix that does need client control.
+Why: Picture 6 servers with the setting at 5 m. Every connection gets a polite GOAWAY after 5 minutes; the client finishes in-flight calls during the grace period and reconnects; the L4 balancer picks again. After a scale-out to 12, within ~5 minutes half the connections have landed on the new boxes. No client code changed, and it rolls out like any config change, with no downtime.
+
 ## Timeouts & retries
+Q: A dependency hangs (accepts, never answers) with a 2 s timeout, and you take 500 req/s. What happens to your service?
+A: About 1,000 workers are stuck waiting at any moment, so your pool runs out and your service goes down with the dependency. That cascade is the headline, before any double-charge worry.
+Why: Little's law: in-flight = rate × time = 500/s × 2 s = 1,000. A typical service has a few hundred workers, so within a second or two every one is waiting on fraud, and requests that never touch fraud (cart, search) queue and time out too. Retries make it worse by adding more calls. A breaker fails the calls in ms and frees the pool.
+Staff: A bulkhead (its own small pool, say 50 workers, for fraud calls) caps the damage to fraud-dependent requests; set the timeout from fraud's p99 (~3×, e.g. 300 ms), not 2 s.
+
+Q: The fraud-scoring breaker is open. What happens to an incoming order?
+A: A fallback, chosen by risk: approve small orders and score them afterwards, hold large ones as "pending review." Half-open probes are how the breaker recovers, not what happens to the order.
+Why: Picture a $20 order and a $2,000 order during a 5-minute fraud outage. Failing both loses sales; approving both risks a big fraud loss. So the $20 one goes through and is queued for scoring later (worst case: a $20 chargeback). The $2,000 one is accepted as "processing" and charged after review. Meanwhile, every 30 s the breaker lets one probe call through, and it closes when probes succeed.
+
+Q: When should a dependency fail open vs fail closed?
+A: Fail open (with limits) when the cost is recoverable money, like fraud scoring on small orders. Fail closed when it's security or correctness, like auth, and design so you rarely call it.
+Why: Fraud down, fail open on a $20 order: worst case one chargeback. Auth down, fail open: any token, including a forged one, reads any user's data. That can't be undone. So fraud gets a "let small ones through" fallback, and auth gets a 503 "try again" for unknown tokens.
+
+Q: Auth service is slow. How should the architecture keep that from taking every API down?
+A: Keep auth off the hot path: services validate JWTs locally with cached public keys (JWKS), so only login and token refresh call auth. The cost is revocation, so access tokens live 5–15 minutes.
+Why: Picture 10k API calls/s. If each one calls auth to check the token, an auth slowdown slows all 10k. With JWTs, each service checks the signature with keys fetched once an hour: no network call. A slow auth service now only delays the few hundred logins/s. A stolen token stays valid until it expires, which is why access tokens are short and urgent cases use a pushed revocation list.
+Flip: Opaque tokens that must be introspected: cache "valid for user X" for ~1 min; when the breaker opens, cached tokens work and unknown ones get 503, never 200.
+
 Q: A provider is slow and every checkout waits out a full timeout before failing. What stops that?
 A: A circuit breaker. Once errors or timeouts cross a threshold, it opens and calls fail in milliseconds; after a cooldown, half-open test calls close it if they succeed.
 Why: Picture the provider at 10 s per response. Every checkout thread waits 10 s, then fails. Threads pile up, your servers run out of them, and now unrelated pages are slow too. With a breaker at 50% failures over 10 s: it opens, and the next checkouts fail in 1 ms with "payment unavailable, try again." After 30 s it lets 1 call through; if that succeeds, it closes. The provider's outage stays the provider's outage.

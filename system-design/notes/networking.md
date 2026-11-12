@@ -164,3 +164,38 @@
 - Rewrite (R1): "An L4 balancer picks a backend once per connection, and gRPC sends every request over one long-lived HTTP/2 connection. So after the scale-out, clients stay pinned to the original ten. Those stay overloaded, users keep seeing slow responses, and the ten new boxes sit idle. I'd move to an L7 balancer that routes each request. If I can't, I'd set a max connection age of about five minutes so clients reconnect and spread out."
 - Did well: no Below-mid answers (25% → 50%); named three of four retry-storm fixes unprompted with a specific 10% budget.
 - Frame reminders: on (re-answers: 1, skipped by user)
+
+## Drill: 2026-11-12 (review, score 50%; Below mid 0 · Mid 2 · Senior 0 · Staff 0)
+### Questions
+**R1 (Failure mode) 🟦 Mid**: Checkout calls a fraud-scoring service with a 2-second timeout. Fraud starts hanging: accepts requests, never answers. What happens to checkout over the next minute, and what would you put in place?
+- Follow-up: Checkout does 500 req/s and each fraud call holds a worker for the full 2 s. What happens to checkout itself, and once the breaker is open, what do you do with the order?
+- You said: Request fails, client retries, customer double-charged (wrong: fraud runs before the charge); idempotency key, backoff + jitter, retry budget, circuit breaker that fails fast and slowly lets requests back (half-open ✅). Follow-up: workers hang, checkout stalls; breaker open → "slowly retry" (that's half-open recovery, not a fallback for the order). No 1,000-worker number.
+- Strong answer: "Each hung call holds a worker for 2 seconds, so at 500 a second that's about a thousand stuck workers, and checkout runs out of threads and goes down with fraud, even for requests that don't need it. A circuit breaker opens once timeouts cross a threshold, so fraud calls fail in milliseconds and the pool frees up. While it's open, I'd approve small orders and score them afterwards, and hold big ones as pending review. Half-open probes close it once fraud recovers."
+- Staff adds: Bulkhead (separate small pool for fraud calls); timeout ~3× fraud's p99 (e.g. 300 ms), not 2 s; alert on breaker state.
+- Side question (auth): auth fails closed, so keep it off the hot path. Validate JWTs locally with cached JWKS keys; for opaque tokens cache introspection ~1 min, unknown tokens → 503. Cost: revocation, so access tokens live 5–15 min. Rule: fail open only if the cost is recoverable money; fail closed for security/correctness.
+
+**R2 (Failure mode) 🟦 Mid**: Recommendation service, gRPC behind L4, 6 instances. Traffic doubles for a sale, autoscale to 12; ten minutes later p99 is still climbing. Why, and what would you change?
+- Follow-up: Why is this worse for gRPC than HTTP/1.1 behind the same L4? What are users seeing while you fix it?
+- You said: Clients have long-lived connections to the old instances, L4 doesn't re-pick; fixes: L7 (cost: CPU to inspect HTTP + TLS termination) or max connection life (said client-side). Follow-up: "binary encoding" (wrong: it's HTTP/2 multiplexing, 3rd miss); users "can't use the service" during a redeploy (wrong: service is up but slow; fix needs no outage).
+- Re-answer: offered (user impact), user skipped.
+- Strong answer: "gRPC multiplexes every request over one long-lived HTTP/2 connection, and L4 balances connections, so clients stay pinned to the original six. Those six take double traffic, so users see slow recommendations while the new six idle. I'd move to L7, which costs TLS termination and parsing every request, or set MAX_CONNECTION_AGE on the server to about five minutes so clients reconnect and spread out."
+- Staff adds: Alert on per-instance request rate; pre-scale before a planned sale.
+### Gap to senior
+- Hung dependency = cascade: workers × timeout exhausts the pool (500/s × 2 s = 1,000 stuck workers). Lead with that, not double charge (fraud runs before the charge).
+- Breaker open → say the fallback for the request (small orders approve + score later, large held for review), separate from half-open recovery.
+- gRPC imbalance = HTTP/2 multiplexing over one connection (3rd miss), not binary encoding.
+- User impact (recurring): old instances overloaded → slow/timed-out responses; no downtime to fix.
+- MAX_CONNECTION_AGE is a server setting (~5 min); client-side balancing is the fix that needs client control.
+### Staff stretch
+- Bulkhead per dependency; timeout from the dependency's p99
+- Alert on breaker state and per-instance request rate; pre-scale for planned events
+### Interview-ready lines
+- "Each hung call holds a worker for 2 seconds, so at 500 a second that's a thousand stuck workers, and checkout goes down with fraud."
+- "While the breaker is open, small orders go through and get scored later, and big ones are held for review."
+- "gRPC multiplexes everything over one HTTP/2 connection, so L4 pins it, the old six take double traffic, and users see slow recommendations."
+- "Auth fails closed, so I keep it off the hot path: JWTs validated locally, short-lived."
+### Delivery
+- Habit (RECURRING): user impact wrong or missing (R2 follow-up: "won't be able to use the service" instead of "slow recommendations from six overloaded boxes"). Same gap as 11-05 and 11-07.
+- Rewrite (R2): "An L4 balancer picks a backend once per connection, and gRPC sends every request over one long-lived HTTP/2 connection. So after the scale-out, clients stay pinned to the original six. Those six are now taking double traffic, so users see slow recommendations and timeouts, while the six new boxes sit idle. I'd move to an L7 balancer that routes each request, which costs TLS termination and parsing on every call. If I can't, I'd set MAX_CONNECTION_AGE on the server to about five minutes, so clients reconnect and spread out."
+- Did well: R1 opened with the consequence before the fix, and the circuit breaker plus half-open recovery came unprompted (it was missed twice before). R2's L7 cost was unprompted.
+- Frame reminders: on (re-answers: 1, skipped by user)
