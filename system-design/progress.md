@@ -17,6 +17,7 @@ Updated automatically by `/sd-pretest`, `/sd-drill`, and `/sd-mock`. Safe to edi
 | api-design | drilled | 44% | 2026-11-07 | 58% | 2026-11-10 | say user impact + cost unprompted (recurring), concurrent retries: insert key in_progress first + 409, cursor = index seek no offset, own id → top-level (nest only list/create), GraphQL: N+1/DataLoader + persisted queries + depth limits, versioning: additive first + v1 adapter over v2 + min-version forced upgrade |
 | numbers | drilled | 44% | 2026-11-09 | 67% | 2026-11-12 | say what the number decides (365 TB ≈ 100× one box), storage = 2nd shard trigger (several TB/box), cache past ~10k reads/s, past 100k shard Redis not replicas, dead cache overloads DB → failover replica + coalescing, size at 70% + reason for 2× peak, never peak on storage |
 | data-modeling | studied | 38% | 2026-11-10 | 25% | 2026-11-11 | hot growing partition → (id, hour) bucket (2nd miss), N:M = item per edge + flipped GSI not a list (2nd miss), no cross-service FK → validate + UserDeleted anonymize + nightly reconcile (2nd miss), say why a number matters (833/s vs ~1k/s partition), snapshot fields denormalize free, name GSI cost unprompted |
+| caching | pretested | 31% | - | - | - | cache-aside mechanism backwards, stampede = coalescing + jittered TTL, hot key = split/replicate not shard, cache past ~10k reads/s, LRU = least recently read, negative cache + Bloom filter |
 
 ## Mock Interviews
 
