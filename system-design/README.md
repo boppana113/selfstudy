@@ -11,7 +11,7 @@
 
 `/sd-speak` runs ~10-minute delivery reps on questions you already know, graded only on how the answer is structured. Use it on days with no review due, or before a mock.
 
-**Rule: one new concept at a time.** Don't pretest the next concept until the current one has been drilled (≥ 50%). Each day is one review (~10 min, most overdue first; the rest wait a day) plus work on the single current concept.
+**Daily review:** one spaced review per day (~10 min, most overdue first; the rest wait a day).
 
 ## Suggested pacing: ML / AI engineering track (~8–10 weeks at ~1 hr/day)
 
