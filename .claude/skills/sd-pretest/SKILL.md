@@ -45,6 +45,8 @@ After the last question, give:
 5. **Hold-in-mind questions**: 2–3 questions to answer *while* reading. They'll be asked again in `/sd-drill`.
 6. If they scored ≥ 85%, say they can skim the article and go straight to `/sd-drill <slug>`.
 
+**Re-say block (~2 min, not skippable).** After the brief answers, pick the 2–3 answers that skipped what the user sees, gave a fix that doesn't act on what broke, or jumped to a fix without the setup (skip ⏭️ "didn't know" answers: content first). Prompt each in one sentence and ask the user to re-say it as one four-beat sentence: "X fails → so the user sees Y → I'd fix it with Z → the cost is W." Ask them back-to-back. Grade each ✓/✗ in a few words, naming any missing beat, and report `Re-say: N/M`. It doesn't change the score. If the user tries to skip, remind them once it's two minutes; if they still decline, record it as skipped.
+
 ## 4. Save
 
 1. Write `system-design/notes/<slug>.md` (create, or append a dated section if it exists):
@@ -61,6 +63,7 @@ After the last question, give:
    ### Hold-in-mind questions
    - ...
    ```
+   In the `### Delivery` subsection, add `- Re-say: N/M (<habits targeted>)`.
 2. Update the Concepts table in `system-design/progress.md`: add or update the row for the slug with status `pretested`, the pretest %, and a short "Key gaps" list (3–6 words each, comma-separated). Leave the drill columns as `-`.
 3. Add flashcards to `system-design/cards/<slug>.md` (create it with a `# <Topic name>` heading if missing). Put each card under a `## <subtopic>` heading named after a curriculum bullet, reusing existing headings. Add 1–2 cards per gap-to-senior item and per hold-in-mind question: `Q:` a short interview-style question; `A:` the pick and its cost in 1–2 sentences; `Why:` a concrete walkthrough that shows how to reason to the answer (picture one user or one request, narrate it with real numbers, 2–4 sentences); optional `Flip:` when you'd choose differently; optional `Staff:` line for a stretch item that isn't a flip. One fact per card; skip cards the file already covers, and update an existing card's answer if this session corrected it. Then run `python3 system-design/space_sync.py <slug>` to push new and edited cards to the Space app (it matches by question, so editing a question makes a new card; `--prune` deletes the old one) and tell the user how many cards were added or updated.
 4. Close with: "Study the topic on Hello Interview, then run `/sd-drill <slug>`."

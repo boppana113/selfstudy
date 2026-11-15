@@ -15,7 +15,7 @@ Arguments: `<slug>` limits questions to one topic; `reps N` sets the number of r
 1. Read `system-design/spoken-mode.md` and follow its dictation note and typed-answer check. This skill is always spoken; ignore `typed`.
 2. Read the `### Delivery` sections across `system-design/notes/*.md` and the last 3 sessions in `system-design/delivery-log.md` (if it exists). Name the user's current habit in one line, quoting them, before the first rep.
 3. Pick the questions. Prefer, in order:
-   1. Rounds with a `Re-answer:` line saying the reasoning didn't come through
+   1. Rounds with a `Re-say: ✗` line (or an older `Re-answer:` line saying the reasoning didn't come through)
    2. Rounds quoted in a `### Delivery` habit line
    3. Rounds graded 🟦 Mid or better (or 🟡/✅ in older notes), so the content is known
    4. Cards in `system-design/cards/*.md`

@@ -43,7 +43,8 @@ Rotate through these formats. Use at least 4 different ones per drill:
 - **Explain it to the interviewer**: "Explain <mechanism> in 60 seconds, like you would on a whiteboard."
 - **Failure mode**: "Node X dies / network partitions / cache goes cold. What happens, and how does your design recover?"
 
-**Answer frames** (used by the reminders below and by the re-answer step):
+**Answer frames** (used by the reminders below and by the re-say block):
+- Four-beat (failure or fix, the default for the re-say block): "X fails → so the user sees Y → I'd fix it with Z → the cost is W."
 - Estimation: "Assuming ___, the formula is ___, so ___ × ___ is ___, which means ___ for the design."
 - Failure mode: "Step one, ___ happens. That causes ___. So the user sees ___. To fix it, I'd ___."
 - Design choice: "I'd pick X because ___. The cost is ___. I'd switch to Y if ___."
@@ -51,13 +52,13 @@ Rotate through these formats. Use at least 4 different ones per drill:
 
 **Frame reminders:** on about 1 in 3 rounds, chosen at random and never round 1, put a one-line reminder in italics above the question, using the frame that fits the format. Estimation and scale it up use the estimation frame; tradeoff duel and scenario use design choice; failure mode, spot the flaw, and explain it use failure mode. For example: *(Frame: step one → consequence → what the user sees → fix)*. Don't say which rounds will get one.
 
-Reminders fade as the habit sticks. Skip reminders this session if either is true: the most recent `Frame reminders:` line in any notes file says `re-answers: 0`, or the last two `## Speak:` sessions in `system-design/delivery-log.md` both scored structure ≥ 80%. Otherwise use them.
+Reminders fade as the habit sticks. Skip reminders this session if either is true: the most recent `Re-say:` line in any notes file is a full pass (e.g. `3/3`), or the last two `## Speak:` sessions in `system-design/delivery-log.md` both scored structure ≥ 80%. Otherwise use them.
 
 After each answer:
 1. Ask **one follow-up** probing the weakest part of the answer (the "why?" or "what if?" a real interviewer would ask). Skip it only if the answer was complete.
 2. Then grade it by level reached: ⬜ Below mid / 🟦 Mid / 🟩 Senior / 🟪 Staff (follow-up included; bars and points in `levels.md`).
 3. Then **teach** with the triage ladder from `levels.md`: what they had, what's missing for senior, and staff stretch items. Correct misconceptions directly. End with one **interview phrasing** line, a senior-level answer they could say.
-4. **Re-answer if they gave only the conclusion.** Do this if the answer jumped to a number or fix without the setup, skipped the consequence before the fix, or stopped at "I'm not sure". Show the matching answer frame (above) and ask them to say the answer again using it, right away. Reply in one line: did the reasoning come through? The re-answer doesn't change the grade. Do at most one re-answer per round, and then move on.
+4. **No mid-round re-answers** (they break flow). Instead, silently note the round for the re-say block if the answer skipped what the user sees, gave a fix that doesn't act on what broke, jumped to a number or fix without the setup, or stopped at "I'm not sure". Then move to the next round.
 
 ## 3. Results and spaced repetition
 
@@ -67,6 +68,8 @@ Give:
 3. **Staff stretch**: a short, optional list.
 4. **What's now solid**.
 5. One "interview-ready sentence" per gap-to-senior item: a crisp line they could say in an interview.
+
+**Re-say block (~2 min, not skippable).** After the results and before saving, replay the 2–3 noted rounds (worst habit misses first; if none were noted, pick the weakest round graded Mid or below). For each, give a one-sentence prompt, not the model answer, and ask them to re-say it in one four-beat sentence (or the estimation frame for a numbers round). Ask them back-to-back; the user answers each before the next. Grade each in a few words: ✓ pass if every beat is present and the fix acts on what broke, ✗ miss otherwise, naming the missing beat. Report `Re-say: N/M`. Re-says don't change the score. If the user tries to skip, remind them once that it's two minutes and the only rep that builds the habit; if they still decline, record it as skipped.
 
 Set the next review date from the score and how many times the concept has been drilled:
 
@@ -99,7 +102,7 @@ For `review` mode, score and schedule each concept separately.
    ### Interview-ready lines
    - ...
    ```
-   Include every round in Questions, in order. If a round had a re-answer, add `- Re-answer: <one line on whether the reasoning came through>` after "You said". In the `### Delivery` subsection (or a new one in `typed` mode), add `- Frame reminders: on|off (re-answers: N)`, where N is the number of rounds that needed a re-answer. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
+   Include every round in Questions, in order. If a round was in the re-say block, add `- Re-say: ✓|✗ <one line: what they said, which beat was missing>` after "You said". In the `### Delivery` subsection (or a new one in `typed` mode), add `- Frame reminders: on|off` and `- Re-say: N/M (<habits targeted>)`. For a spot-the-flaw round, include the design shown. In `review` mode, write each concept's rounds to that concept's notes file.
    Also remove items from the "Gaps" lists of earlier sections that are now clearly solid, or mark them ✅.
 2. Update the row in `system-design/progress.md`: status, last drill date, drill score, next review, and refreshed key gaps (from the gap-to-senior list).
 3. Add flashcards to `system-design/cards/<slug>.md` (create it with a `# <Topic name>` heading if missing). Put each card under a `## <subtopic>` heading named after a curriculum bullet, reusing existing headings. Add 1–2 cards per gap-to-senior item and per hold-in-mind question: `Q:` a short interview-style question; `A:` the pick and its cost in 1–2 sentences; `Why:` a concrete walkthrough that shows how to reason to the answer (picture one user or one request, narrate it with real numbers, 2–4 sentences); optional `Flip:` when you'd choose differently; optional `Staff:` line for a stretch item that isn't a flip. One fact per card; skip cards the file already covers, and update an existing card's answer if this session corrected it. Then run `python3 system-design/space_sync.py <slug>` to push new and edited cards to the Space app (it matches by question, so editing a question makes a new card; `--prune` deletes the old one) and tell the user how many cards were added or updated.
