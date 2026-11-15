@@ -3,7 +3,7 @@
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
 **Gateway repo:** not created yet (made in the first `/rs-build`)
-**Current stage:** `ownership`
+**Current stage:** `basics` (refresher, then `ownership`)
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
 
 **Status values:** `pretested` → `building` → `built` (mastery items 1 done) → `mastered` (all 4 mastery items) 
