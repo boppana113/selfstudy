@@ -15,6 +15,7 @@ A new stage starts with `/rs-drill pretest <slug>` before building. A stage is d
 ## Files
 - `curriculum.md`: stages, the Pydantic file to read, what to build, testable points, interview questions
 - `progress.md`: current stage, scores, review dates, gateway repo path
+- `journey/NN-<slug>.md`: a narrated walkthrough per stage (condensed Book chapters, type-along code, checkpoints, build steps). Open it with Cmd+K V beside your code. `/rs-build` writes the next one. Full Book offline: `rustup doc --book`
 - `notes/<slug>.md`: gaps and model answers per stage
 - `cards/<slug>.md`: flashcards (same format as system-design); `python3 rust/space_sync.py [slug]` syncs them to Space as "Rust · <Topic>" decks
 - `sessions/`: build session logs (what was built, which errors you hit, what's next)

@@ -15,7 +15,8 @@ Arguments: `$ARGUMENTS`
 1. Read `rust/curriculum.md`, `rust/progress.md`, `rust/notes/<slug>.md` if it exists, and the last entry in `rust/sessions/`.
 2. Stage = the argument, or **Current stage** in progress.md. If that stage has no pretest, suggest `/rs-drill pretest <slug>` first (10 min) but don't insist.
 3. **Gateway repo:** if progress.md says it's not created, have the user run `cargo new --bin llm-gateway` in a location they choose (suggest `~/llm-gateway`) and `git init`. Record the path in progress.md. It's a separate repo because it's a portfolio piece.
-4. Check the weekday bug list: ask "Anything break or annoy you while running the gateway this week?" If yes, fix that first. That's the point of running it every day.
+4. **Journey file:** if `rust/journey/NN-<slug>.md` doesn't exist for this stage, write it before building, following the format of `rust/journey/00-basics.md`: a narrated walkthrough of the stage's Book chapters that the user follows in a VS Code preview pane. Condense the Book (the user shouldn't need the full docs). Include `▶ Type this` blocks the user types themselves, Python/TS comparisons, `✓ Checkpoint` questions with collapsed answers, each Expected error shown as a snippet to trigger on purpose, a 📖 depth link per part, and the build steps as signatures and hints only (never the solution). Commit it.
+5. Check the weekday bug list: ask "Anything break or annoy you while running the gateway this week?" If yes, fix that first. That's the point of running it every day.
 
 ## 2. Read Pydantic's version first (10–15 min)
 
