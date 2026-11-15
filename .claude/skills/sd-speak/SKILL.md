@@ -18,7 +18,7 @@ Arguments: `<slug>` limits questions to one topic; `reps N` sets the number of r
    1. Rounds with a `Re-answer:` line saying the reasoning didn't come through
    2. Rounds quoted in a `### Delivery` habit line
    3. Rounds graded 🟦 Mid or better (or 🟡/✅ in older notes), so the content is known
-   4. Cards in `system-design/anki/cards/*.md`
+   4. Cards in `system-design/cards/*.md`
 
    Skip anything graded ⬜ Below mid or ❌. If the content isn't known, the rep turns into a content drill. Mix formats so each frame gets used: at least one failure-mode, one design-choice, and one estimation question when the notes have them. Don't reuse a question from the last session in `delivery-log.md`.
 

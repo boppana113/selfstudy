@@ -1,0 +1,32 @@
+{
+  "caching": {
+    "deck": "6091b89a-4937-4f9b-93be-1cace0e1bd80"
+  },
+  "api-design": {
+    "deck": "691aa9db-36ce-4c15-a568-168f28fa9c39"
+  },
+  "data-modeling": {
+    "deck": "a21002fa-df08-49dd-95c6-afa5799c617a"
+  },
+  "db-indexing": {
+    "deck": "51fc6fe4-e738-4bd1-9718-eb06a92d4c10"
+  },
+  "delivery-framework": {
+    "deck": "cb73b244-262b-4552-9b58-6f40cb938f47"
+  },
+  "kafka": {
+    "deck": "81421fd1-4f74-4115-aac3-dd08f011ba20"
+  },
+  "long-running-tasks": {
+    "deck": "8c9f0f68-a0b2-4f2b-9e04-d3fc62114078"
+  },
+  "ml-delivery-framework": {
+    "deck": "4fd3c3c7-0f01-4bf7-8632-c07d9dcbea9a"
+  },
+  "networking": {
+    "deck": "9660f72f-0703-4cb0-8ef6-ffe586710116"
+  },
+  "numbers": {
+    "deck": "822a9ab6-80ef-4147-9a59-0a08e1b67dbe"
+  }
+}

@@ -48,5 +48,5 @@ Daily: start each session with `/sd-drill review` if anything is due (5–10 min
 - `delivery-log.md`: `/sd-speak` sessions and the consequence-first rate
 - `levels.md`: per-answer grade by level (below mid / mid / senior / staff), used by drills and pretests
 - `notes/<topic>.md`: gaps and interview-ready lines per topic
-- `anki/cards/<topic>.md`: flashcards per topic and subtopic; `python3 anki/build.py` builds `anki/system-design.txt` for Anki import
+- `cards/<topic>.md`: flashcards per topic and subtopic; `python3 space_sync.py [slug]` syncs them to the Space app (one deck per topic, "SD · <Topic>"); deck IDs in `space-ids.json`
 - `sessions/`: mock interview transcripts and scorecards
