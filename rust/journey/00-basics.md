@@ -22,7 +22,7 @@ You'll almost never call `rustc` directly. Cargo creates projects, builds them, 
 
 ▶ Type this:
 ```sh
-cd ~/scratch   # anywhere outside selfstudy
+cd ~/selfstudy/rust/practice
 cargo new hello && cd hello
 cargo run
 ```
@@ -221,7 +221,7 @@ Then run `rustc --explain E0384` for the long explanation with examples. Do this
 
 ```sh
 cargo install rustlings   # once
-cd ~/scratch && rustlings init && cd rustlings && rustlings
+cd ~/selfstudy/rust/practice && rustlings init && cd rustlings && rustlings
 ```
 Do these in order: `intro` → `variables` → `functions` → `if` → `primitive_types` → `vecs`. **Stop before `move_semantics`.**
 
@@ -233,7 +233,7 @@ Some `vecs` exercises use `.iter().map(...)`. Look at the pattern, but don't stu
 ## Part 6: Build `tokencost`
 
 ```sh
-cd ~/scratch && cargo new tokencost && cd tokencost
+cd ~/selfstudy/rust/practice && cargo new tokencost && cd tokencost
 cargo run -- claude-sonnet 1200 350     # `--` passes the args through to your program
 # → claude-sonnet: 1200 in + 350 out = $0.008850
 ```
