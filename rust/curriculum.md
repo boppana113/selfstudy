@@ -15,7 +15,7 @@ Your Dec 2025 attempt (Book ch. 1–4) has mostly faded, so begin with stage 0 b
 ### 0. `basics`: Refresher (1 weekend)
 - **Read:** Rust Book ch. 1–3 (setup and cargo, the guessing game, variables / types / functions / control flow). Skim it, and type the examples instead of just reading them.
 - **Practice:** [Rustlings](https://github.com/rust-lang/rustlings) `intro` → `variables` → `functions` → `if` → `primitive_types` → `vecs`. Stop before `move_semantics`, because stage 1 covers that.
-- **Build:** `cargo new tokencost`. It's a CLI: `tokencost claude-sonnet 1200 350` prints the cost from a hard-coded price table. You'll use `std::env::args`, `parse::<u32>()`, `match` on the model name, a function or two, and a helpful message for bad input. Write one `#[test]`.
+- **Build:** `cargo new tokencost` in `rust/practice/` (all journey projects and drills live there). It's a CLI: `tokencost claude-sonnet 1200 350` prints the cost from a hard-coded price table. You'll use `std::env::args`, `parse::<u32>()`, `match` on the model name, a function or two, and a helpful message for bad input. Write one `#[test]`.
 - **Done when:** it runs, `cargo test` and `cargo clippy` are clean, and you can read a compiler error out loud: what the error code is, which line it points to, and what the `help:` line suggests.
 - **Don't worry yet about:** `&` vs owned values, `String` vs `&str`, or `Result`/`?`. Use `.unwrap()` and `.clone()` freely. Stages 1–2 deal with them properly.
 

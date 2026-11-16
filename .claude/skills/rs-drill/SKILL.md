@@ -24,7 +24,7 @@ Read `rust/curriculum.md`, `rust/progress.md`, and `rust/notes/<slug>.md` if it 
 - **Predict the error**: a 5–12 line snippet. "Does it compile? If not, which error and why? Fix it." This is the core format. Base snippets on the gateway's types (ApiKey, Event, Provider) so they're familiar.
 - **Explain it**: "Explain <mental model> in 60 seconds, the way you would to an interviewer." Use the stage's Interview questions.
 - **Design choice**: "Enum or trait object for providers? Defend it." Then argue the other side.
-- **Code it**: one small problem in Rust, written in a scratch file under the scratchpad directory, then `cargo test` or `rustc` it. Use the stage's interview problem, or a classic at the same level (LRU cache, rate limiter, parse a line protocol, concurrent counter, merge iterators). At most 1 per session (it's the long one).
+- **Code it**: one small problem in Rust, which the user writes in `~/selfstudy/rust/practice/drills/<slug>-<problem>/` (`cargo new` there, then `cargo test`, with `bacon test` running). Claude's own snippet checks still go in the scratchpad. Use the stage's interview problem, or a classic at the same level (LRU cache, rate limiter, parse a line protocol, concurrent counter, merge iterators). At most 1 per session (it's the long one).
 - **Compare to Python/TS**: "Pydantic does X in TypeScript like this. What changes in Rust, and what does Rust catch that TS doesn't?"
 
 After each answer in drill mode: ask one follow-up on the weakest part, grade it, then teach briefly: the correct model, the one thing missing, and one **interview line** they could say. Grades: ✅ solid (2 pts) / 🟨 partial (1) / ❌ missing (0).

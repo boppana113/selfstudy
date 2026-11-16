@@ -14,6 +14,10 @@ code --list-extensions | grep rust-analyzer   # install "rust-analyzer" if missi
 ```
 rust-analyzer shows types inline and puts errors under the line as you type. Most of your learning will come from those hints, so make sure it's installed.
 
+**Where code goes:** every project in this guide lives in `~/selfstudy/rust/practice/<name>/` (`target/` is gitignored, so commit your work freely).
+
+**Keyboard loop:** run `bacon` in the project folder (`cargo install bacon` once). Then: edit → **Cmd+S** → bacon re-checks → **F8** jumps to the next error → **Cmd+.** applies a quick fix. **Ctrl+`** moves you between the terminal and the editor, and **Cmd+1** jumps to the editor.
+
 ---
 
 ## Part 1: Cargo is your `uv` + `pytest` + `ruff` (Book ch. 1)
