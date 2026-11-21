@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "rust/practice/hello/Cargo.toml",
+    "rust/practice/guess/Cargo.toml"
+  ]
+}
