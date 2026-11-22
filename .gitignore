@@ -1,2 +1,7 @@
 .DS_Store
 .claude/settings.local.json
+
+# Source pages (paid content, never pushed)
+lld/sources/
+system-design/sources/
+*.pdf
