@@ -19,6 +19,11 @@ A: Analytics resets its own consumer group's offsets to last week's timestamp. N
 Why: Each group's bookmark is independent. Analytics stops its consumers, runs `kafka-consumer-groups --reset-offsets --to-datetime 2026-11-03T00:00` on its group, and restarts. Its consumers re-read 7 days of events. Fraud's bookmark never moved. The only requirement is that retention is at least 7 days, or the data is already gone.
 Staff: Tiered storage makes long retention cheap.
 
+Q: Analytics replays a week of orders on the shared topic. Does that slow down fraud and email, and what does it cost?
+A: It doesn't block them, because each group reads independently. The cost is broker disk reads: old segments aren't in page cache, so the replay competes for disk and network. Throttle it with a consumer byte-rate quota.
+Why: Fraud reads the tail of the log, which is hot in the page cache, so it's served from memory. Analytics suddenly reads 7 days of cold segments from disk at full speed, which pushes fraud's hot pages out of cache and saturates disk. Fraud's latency creeps up even though no message was taken from it. A quota caps analytics at, say, 20 MB/s, so the replay takes longer and fraud doesn't notice.
+Flip: For a huge or very old replay, reprocess from the S3/data-lake copy instead of production Kafka.
+
 Q: What does a committed offset mean?
 A: "This group has processed everything in this partition up to here." One watermark per partition, not a per-message ack.
 Why: Picture messages 100–110 in a partition. The consumer finishes 101–110 but 100 is still running. It can't commit 110, because a commit says everything before it is done, and 100 isn't. If it commits 110 and crashes, 100 is skipped forever. If it waits and crashes, 100–110 all replay. That one-number design is why Kafka works for ordered streams and poorly for a job queue.
@@ -103,6 +108,15 @@ Why: Picture order 500 failing 10 times at 3 a.m. The log line scrolls past. The
 Q: A consumer sleeps a fixed 60 seconds between retries of a downstream API. What's the problem?
 A: Retries stay synchronized and hit the API in waves while it's still struggling. Use exponential backoff with jitter, plus a circuit breaker during an outage.
 Why: The API blips at 10:00:00. All 50 consumers fail at once and sleep 60 s. At 10:01:00 all 50 retry in the same second: the API, barely recovered, gets a spike and fails again. 10:02:00, same thing. With backoff and jitter, the retries spread over 30–90 s and ramp down, so the API sees a trickle. A breaker stops calls entirely once failures cross a threshold.
+
+Q: Does Kafka have a built-in dead letter queue?
+A: No. A Kafka DLQ is an ordinary topic (e.g. shipments.dlq) that the consumer produces the failed message to before committing. SQS has one natively via a redrive policy with maxReceiveCount.
+Why: Label for order 500 fails 3 times. The consumer publishes it to shipments.dlq with the error and attempt count in headers, then commits 500 and moves on. A replay job (its own consumer group on shipments.dlq) re-sends it once the carrier is fixed. In SQS, after 3 failed receives the message moves to the DLQ by itself, with no code. Kafka Connect and Spring Kafka wrap this, but it's still a plain topic.
+
+Q: The carrier API is down for 20 minutes and every label fails. Should you push back on the producers writing orders?
+A: No. Kafka is the buffer: pause the consumer with a circuit breaker, let lag grow within retention, and drain when the carrier recovers. Back pressure on producers turns a shipping delay into "customers can't place orders."
+Why: At 2k orders/s, 20 minutes is 2.4M messages, which is a few GB that Kafka holds easily with 7-day retention. The breaker opens after a burst of failures, so the consumer stops polling and nothing floods the DLQ. Customers keep checking out. At 10:20 the carrier is back, the breaker half-opens, and the consumer drains the backlog in minutes. Labels are about 20 minutes late. If you rejected producer writes instead, checkout would be down for 20 minutes.
+Staff: Alert on consumer lag in seconds, not message count; send permanent errors (bad address) to a person and transient ones to a retry topic.
 
 ## Kafka vs SQS
 Q: Job 100 in a partition takes 20 minutes; 101–110 take 2 minutes and finish first. Can you commit offset 110? What if you crash now?

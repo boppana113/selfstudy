@@ -165,3 +165,41 @@ consumer group: label-service, 20 consumers
 - Rewrite (R6): "I'd use Kafka, because three teams need the same events and one needs replay. Each team is its own consumer group, so they read the same log with separate offsets and never step on each other. When analytics wants last week, it resets its group's offsets to that timestamp, as long as it's within retention, so I'd keep two weeks. SQS deletes a message once it's consumed, so I'd need SNS fanning out to three queues and still couldn't replay. The cost is running Kafka and building retries and a DLQ myself."
 - Did well: R3 opened with the consequence unprompted ("the customer gets charged twice"), the miss from 11-04; used the unsure frame twice ("I don't know the exact mechanism, but I'd assume…").
 - Frame reminders: off (re-answers: 1)
+
+## Drill: 2026-11-22 (review; score 75%; Below mid 0 · Mid 1 · Senior 1 · Staff 0)
+### Questions
+**R1 (Scenario) 🟦 Mid**: Order events go to fraud, email, and analytics, all on Kafka. Analytics finds a bug and needs to reprocess last Tuesday's orders. How do they do that without affecting fraud or email?
+- Follow-up: The producer writes each order once to one orders topic. If every team has its own topic, who copies events in, and what does that cost? Can all three read the one topic from their own position?
+- You said: First answer: analytics gets its own topic with its own replay pointer (3rd time saying "new topic"). After the follow-up: one topic, each consumer group has its own offset, and analytics moves only its own. Cost given: other teams can't process new messages during replay (wrong), fixed with a shadow environment.
+- Re-say: ✗ "analytics group changes their offset ID; brokers spend extra time processing." Missing what the user sees (fraud and email unaffected) and "to last Tuesday's timestamp, within retention."
+- Strong answer: "Each team is its own consumer group on the same orders topic, so analytics has its own offsets. They reset their group's offsets to last Tuesday's timestamp with kafka-consumer-groups --reset-offsets --to-datetime, which works because retention is two weeks. Fraud and email never notice, because reading doesn't remove anything and their offsets don't move. The cost is broker load: old segments come off disk, not the page cache, so I'd throttle the replay with a consumer quota."
+- Staff adds: replay into an idempotent sink (overwrite by order_id) so analytics doesn't double-count; for big or old replays, reprocess from the S3/data-lake copy or a mirrored cluster instead of production Kafka.
+- Side question (shadow environment): wrong reason (groups don't block each other), but replaying from a copy is legit when replay load would hurt live consumers' page cache.
+
+**R2 (Failure mode) 🟩 Senior**: A shipping-label consumer retries the carrier API a few times. After the last failure, it logs the error, commits the offset, and moves on. What happens to that order?
+- Follow-up: The carrier API is down for 20 minutes, so every label fails. What happens to the DLQ and manual review, and how do those orders ship once the carrier is back?
+- You said: The order is never sent to the carrier and nobody sees the error; Kafka won't replay a committed message; fix with a DLQ plus manual review and notifying the user. Follow-up: DLQ and review backlog grow; replay the DLQ from the oldest once the carrier is back; pause the consumer during the outage; apply back pressure on producers (wrong).
+- Re-say: ✗ consequence and what the user sees were there, but the fix was again "reject new requests from producers," and there was no cost.
+- Strong answer: "Log-and-commit loses the order silently: no label, the package never ships, and nobody knows until the customer complains. I'd publish it to a DLQ topic before committing and alert on DLQ depth. For an outage, a circuit breaker on the carrier client pauses consumption, Kafka holds the backlog within retention, and we drain it when the carrier recovers. I wouldn't push back on producers, because order placement shouldn't depend on shipping. The cost is labels arriving about 20 minutes late."
+- Staff adds: split errors by type (transient → retry topic, permanent like a bad address → a person); DLQ replay tool instead of manual review for failures from an outage; alert on consumer lag in seconds.
+- Side question: Kafka has no built-in DLQ; it's an ordinary topic the consumer produces to before committing (Connect/Spring wrap it). SQS has it natively through a redrive policy with maxReceiveCount.
+### Gap to senior
+- Fan-out and replay: one consumer group per team on the same topic; replay = reset that group's offsets to a timestamp within retention (3rd miss: first answer is "new topic")
+- Replay cost: broker disk reads and page-cache churn → throttle with a quota; groups never block each other
+- During a downstream outage, Kafka is the buffer: pause the consumer (circuit breaker), let lag grow within retention; never push back on producers (missed twice this session)
+### Staff stretch
+- Circuit breaker on the downstream API; retry topic vs DLQ split by error type; DLQ replay tool
+- Replay big or old ranges from the S3 copy; idempotent sink for replays
+### Interview-ready lines
+- "Each team is its own consumer group on one topic, so analytics resets its offsets to last Tuesday and fraud never notices."
+- "Replay doesn't block other groups. It costs broker disk reads, so I'd throttle it with a quota."
+- "During a downstream outage, Kafka holds the backlog. I let lag grow within retention instead of blocking order placement."
+### Hold-in-mind questions
+- Analytics replays last week on the shared topic: how, what do fraud and email see, and what does it cost?
+- The downstream API is down for 20 minutes: where does the backlog live, and what do you change: consumer or producer?
+### Delivery
+- Habit: asserted a guessed cost as fact. R1: "other teams may not be able to process new messages." Use the unsure frame when reasoning, not recalling.
+- Rewrite (R1): "Analytics is its own consumer group on the same orders topic, so it has its own offsets. To reprocess last Tuesday, they reset their group's offsets to that timestamp. That works because we keep two weeks of retention. Fraud and email are on separate groups, so they don't notice. The only cost is load on the brokers, since that old data comes off disk, so I'd throttle the replay with a quota."
+- Did well: self-corrected out loud ("I think I made a mistake… there should actually be a single topic"); R2 opened consequence-first.
+- Frame reminders: on
+- Re-say: 0/2 (what the user sees; fix on the consumer side, not the producer)
