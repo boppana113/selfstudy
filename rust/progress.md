@@ -3,7 +3,7 @@
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
 **Gateway repo:** not created yet (made in the first `/rs-build`)
-**Current stage:** `basics` (refresher, then `ownership`)
+**Current stage:** `ownership`
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
 
 **Status values:** `pretested` → `building` → `built` (mastery items 1 done) → `mastered` (all 4 mastery items) 
@@ -14,6 +14,7 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 | Slug | Status | Pretest | Built | Last drill | Drill score | Next review | Key gaps |
 |---|---|---|---|---|---|---|---|
 | basics | mastered | — | 2026-11-22 | — | — | — | — |
+| ownership | pretested | 29% (2026-11-22) | — | — | — | — | E0502 shared-vs-mut borrow; lifetimes/E0106 unknown; returning refs vs owned; String = owned heap buffer |
 
 ## Build log
 
