@@ -53,6 +53,11 @@ Q: Two retries with the same idempotency key arrive at the same time. What happe
 A: A unique constraint on the key, or an insert-if-absent "in progress" row, lets exactly one proceed; the other waits for the stored response or gets a 409.
 Why: Both retries check the table, both see no row, both create a post: that's the race. Insert the key first, before doing the work. Request A inserts (key, in_progress) and wins. Request B's insert fails on the unique constraint, so it either polls for A's stored response or returns 409 "in progress" and the client retries in a second. Either way, exactly one post exists.
 
+Q: The retry arrives while the first "Place order" is still charging. You forward the idempotency key to Stripe. Isn't that enough?
+A: No. Stripe dedups the charge, but your own system still creates two orders. Claim the key as in_progress under a unique (user_id, key) constraint before any work; the retry fails the insert and gets a 409.
+Why: Picture both requests checking the key at t=0 and t=3s: both find nothing, both insert an order row, both call Stripe with the same key. Stripe returns one charge, but the restaurant gets two tickets and the user sees two orders in history. With the in_progress row, the 3s retry hits the unique constraint, reads in_progress, and the app shows "processing" and polls.
+Staff: Forwarding to Stripe is defense in depth; add a timeout on stale in_progress rows so a crashed request doesn't lock the key.
+
 Q: Rolling out a breaking response change to millions of mobile clients?
 A: Prefer additive changes. If you must break, version the API, run both side by side, and enforce a minimum app version. The cost is maintaining two surfaces for months.
 Why: Picture 5M installed apps parsing `author` as a string. You change it to an object and ship v2 of the backend. Every old app crashes on the next feed load, and you can't force 5M phones to update tonight. So v2 goes at `/v2/posts` and v1 keeps returning the string. You track traffic per version, watch v1 drop over weeks, and when the long tail is under ~1% a min-version check tells those apps to update.

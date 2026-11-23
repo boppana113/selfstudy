@@ -164,3 +164,33 @@ DELETE /orders/{order_id}        # cancels the order
 - Rewrite (R5): "First I'd try to make the change additive: add the new field and keep the old one, so nothing breaks. If it's truly breaking, I'd ship v2 and have v1 call v2 and reshape the response, so I'm not running two backends. To retire v1, the app sends its version on every request, and I watch v1 traffic. Once it's under about one percent, the min-version check shows old apps an update screen, so the user gets a clear prompt instead of a broken feed. The cost is months of adapter code, because mobile users update slowly."
 - Did well: unsure frame followed by real reasoning, no guesses; R6 consequence → fix → what the user sees, unprompted (connections-can't-move was a 3x networking miss).
 - Frame reminders: on (re-answers: 1)
+
+## Drill: 2026-11-22 (review; score 50%; Below mid 0 · Mid 2 · Senior 0 · Staff 0)
+### Questions
+**R1 (Failure mode) 🟦 Mid**: Food delivery checkout. "Place order" hangs; the app retries with the same idempotency key after 3 s while the first request is still charging the card. What happens on the server, and what does the user see?
+- Follow-up: At 3 s there's no stored response yet. What does the server do with the retry, and what stops both from charging?
+- You said: replay the stored 201 + order id (near-verbatim warm-up); replay stored errors too. Follow-up: Stripe/PayPal handles the idempotency key, so it's the provider's responsibility.
+- Strong answer: "If the first request finished, the retry gets the stored 201 and order id. Here it hasn't, so the first request must claim the key before it touches the card: insert (user_id, key) as in_progress under a unique constraint. The retry's insert fails, it sees in_progress, and returns 409 'processing', so the app shows a spinner and polls. Without that, both requests find no key, both create an order, and even if Stripe dedups the charge, the restaurant cooks twice. I also forward the key to Stripe as a second layer."
+- Staff adds: timeout on stale in_progress rows; same key + different body → 422; don't store 5xx as final.
+
+**R2 (Scenario) 🟦 Mid**: A push notification links to comment 987. What URL loads it, and why not nest it under the post?
+- Follow-up: Is there any comment endpoint you would nest under /posts/{id}? Which, and why?
+- You said: GET /comments/987; the client shouldn't have to know the post, the comment row links to the post. Follow-up: listed GET /posts/{id}/comments/{comment_id} (nested single fetch, the old flaw) and list-all under a post. No cost named despite the frame.
+- Strong answer: "A comment has its own id, so it's GET /comments/987. The notification doesn't carry the post id, and the link lives in comments.post_id. I'd nest only list and create: GET and POST /posts/{id}/comments. The cost is a second call for post context, which ?include=post can fold in."
+- Staff adds: deep paths hard-code one access pattern and break when ownership changes; authz on the comment's own row.
+### Gap to senior
+- In-flight retries: claim key as in_progress under a unique constraint before work → 409 (3rd miss; not "Stripe handles it")
+- Nest only list and create; single-item fetch by own id is always top-level
+- Name the cost in design-choice answers, even with the frame shown
+### Staff stretch
+- Forward key to payment provider as defense in depth; stale in_progress timeout; 422 on key reuse with different body
+### Interview-ready lines
+- "The first request claims the key as in-progress before touching the card, so a concurrent retry gets a 409, not a second order."
+- "Only list and create nest under the parent. Anything with its own id is top-level."
+- "The cost is ___, and I'd switch if ___."
+### Delivery
+- Habit (RECURRING): cost beat missing. R2: "We don't list it under post because…" with no cost, even with the design-choice frame shown.
+- Rewrite (R2): see interview phrasing above.
+- Did well: bottom line first in both answers.
+- Frame reminders: on
+- Re-say: skipped (user exhausted, asked to stop)
