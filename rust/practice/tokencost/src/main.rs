@@ -14,13 +14,12 @@ fn main() {
     // TODO 1: collect std::env::args() into a Vec<String>.
     //         Print it once with {:?} to see what index 0 is.
     let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
 
     // TODO 2: if the argument count is wrong, print
     //         "usage: tokencost <model> <input_tokens> <output_tokens>"
     //         and std::process::exit(1).
     if args.len() != 4 {
-        println!("usage: tokencost <model> <input_tokens> <output_tokens>");
+        eprintln!("usage: tokencost <model> <input_tokens> <output_tokens>");
         std::process::exit(1);
     }
 
@@ -34,7 +33,10 @@ fn main() {
     let (input_price, output_price) = prices(&args[1]);
     let total_cost: f64 = cost(input_tokens, output_tokens, input_price, output_price);
 
-    println!("total cost = {:.6}", total_cost);
+    println!(
+        "{}: {input_tokens} in + {output_tokens} out = ${:.6}",
+        args[1], total_cost
+    );
 }
 
 /// Returns (input_price, output_price) in USD per million tokens.
@@ -42,20 +44,15 @@ fn prices(model: &str) -> (f64, f64) {
     // TODO 5: match on model. For an unknown model, print an error
     //         that lists the valid models and exit(1).
     // todo!("match on {model}")
-    if model == "claude-haiku" {
-        (1.00, 5.00)
-    } else if model == "claude-sonnet" {
-        (3.00, 15.00)
-    } else if model == "claude-opus" {
-        (5.00, 25.00)
-    } else {
-        println!("Valid models include claude-haiku, claude-sonnet, claude-opus");
-        std::process::exit(1);
+    match model {
+        "claude-haiku" => (1.00, 5.00),
+        "claude-sonnet" => (3.00, 15.00),
+        "claude-opus" => (5.00, 25.00),
+        _ => {
+            eprintln!("Valid models include claude-haiku, claude-sonnet, claude-opus");
+            std::process::exit(1)
+        }
     }
-    // Prices are USD per million tokens:
-    //   claude-haiku   in 1.00   out 5.00
-    //   claude-sonnet  in 3.00   out 15.00
-    //   claude-opus    in 5.00   out 25.00
 }
 
 /// Returns the total cost in USD.
@@ -74,8 +71,10 @@ mod tests {
     fn sonnet_cost() {
         // TODO 7: assert cost(...) equals a number you worked out by hand.
         //         Floats aren't exact, so check (actual - expected).abs() < 1e-9.
-        let _ = cost;
-        let _ = prices;
-        todo!()
+        // 1200 * $3/M + 350 * $15/M = 0.0036 + 0.00525 = 0.00885
+        let (in_price, out_price) = prices("claude-sonnet");
+        let actual = cost(1200, 350, in_price, out_price);
+        let expected = 0.00885;
+        assert!((actual - expected).abs() < 1e-9, "got {actual}, expected {expected}");
     }
 }
