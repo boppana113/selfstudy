@@ -2,7 +2,7 @@
 
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
-**Gateway repo:** not created yet (made in the first `/rs-build`)
+**Gateway repo:** `~/llm-gateway` (created in stage 1, step 0)
 **Current stage:** `ownership`
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
 
