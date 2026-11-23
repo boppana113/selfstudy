@@ -31,3 +31,12 @@ Build an LLM gateway in Rust modeled on Pydantic's AI Gateway, one concept stage
 |---|---|
 | `/rs-build [stage]` | Saturday: read Pydantic's version, then build the stage (you write the code) |
 | `/rs-drill [pretest\|review] [stage]` | Sunday: interview drill, predict-the-error, coding problem, spaced reviews |
+
+## LLM engineering (3 weekdays, CS336 self-study)
+
+Stanford CS336 (Spring 2026) from public materials, scaled to one GPU on Modal, aimed at applied LLM engineer roles. See [llm/README.md](llm/README.md).
+
+| Skill | Use |
+|---|---|
+| `/llm-drill [lecture N\|stage slug\|review]` | Lecture day: pretest → watch → drill; stage mastery drills; spaced reviews |
+| `/llm-build [stage]` | Build day: the current assignment part (you write the code, tests are the done-check) |
