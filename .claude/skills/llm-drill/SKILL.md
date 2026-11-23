@@ -17,7 +17,7 @@ Read `llm/curriculum.md`, `llm/progress.md`, and `llm/notes/<slug>.md` if it exi
 - **`lecture <N>`** (a lecture day, 75 min):
   1. **Gate check:** if lecture N is more than 3 past the current build stage's last lecture (curriculum.md → Rhythm), say so and suggest `/llm-build` instead. Proceed only if they insist.
   2. **Pretest (~5 min):** 3–4 quick questions on the lecture's topic. After each, give only a one-line grade, no explanation. Wrong answers are expected.
-  3. Send them to watch: the YouTube playlist link from curriculum.md, at 1.5x. For PDF lectures, a 5-min skim of the slides first. Set the lecture to `pretested` and tell them to come back with "done".
+  3. Send them to watch: the YouTube playlist link from curriculum.md, at 1.5x. For PDF-only lectures (no video), write `llm/journey/lecture-<N>.md` instead of sending them to the slides: a narrated walkthrough in the format of `rust/journey/00-basics.md`, with condensed concepts, small `▶ Type this` tensor examples in `llm/practice/`, `✓ Checkpoint` questions with collapsed answers, and one 📄 slide reference per part, aimed at what the pretest missed. Commit it. Set the lecture to `pretested` and tell them to come back with "done".
   4. When they say done: a **drill (~15 min)** of about 4 rounds on the lecture, then results, the re-say block, and saving. Status → `watched` if the drill is under 50%, `drilled` otherwise.
 - **`stage <slug>`**: a mastery drill after a build stage is `built` (items 2–3 of the mastery check), about 5 rounds.
 - **`review`**: lectures and stages whose Next review is today or earlier. 3 questions per item, at most 2 items, most overdue first.
