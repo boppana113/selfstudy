@@ -11,7 +11,7 @@ Run `.claude/skills/sd-drill/SKILL.md` exactly as written, with these substituti
 - Paths: `system-design/curriculum.md` → `lld/curriculum.md`, `system-design/progress.md` → `lld/progress.md`, `system-design/notes/` → `lld/notes/`, `system-design/cards/` → `lld/cards/`, `system-design/space_sync.py` → `lld/space_sync.py`.
 - Keep using `system-design/levels.md` and `system-design/spoken-mode.md` (shared). Warm-up rewrites come from `lld/notes/` first, falling back to `system-design/notes/`.
 - `review` mode covers LLD concepts only. If system design reviews are also due, mention it in one line.
-- Skip the "every 4th concept suggest `/sd-mock`" step; instead, after `design-patterns` and `oop-concepts` are drilled, suggest `/lld-drill parking-lot`.
+- Skip the "every 4th concept suggest `/sd-mock`" step; instead, after `design-principles`, `oop-concepts`, and `design-patterns` are drilled, suggest `/lld-drill parking-lot`.
 
 ## LLD round formats (use these in place of scale-it-up and estimation)
 - **Requirement → design**: a short requirement snippet; ask which classes and interfaces, and which pattern if any.

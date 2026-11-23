@@ -22,18 +22,29 @@ Interview format: an LLD round asks you to design the classes, interfaces, and k
 
 ## Phase 1: Core Concepts
 
-### `oop-concepts`: OOP Concepts
-- Encapsulation: state is private, changed only through methods that keep it valid
-- Abstraction: callers depend on an interface, not the concrete class
-- Inheritance vs composition: "is-a" vs "has-a"; prefer composition, inheritance for stable type hierarchies only
-- Polymorphism: one call, behavior picked by the object's type; replaces type-switch conditionals
-- Interfaces / abstract classes and when each fits
-
 ### `design-principles`: Design Principles
-- SOLID, especially single responsibility and open/closed (add behavior by adding a class)
-- Dependency inversion: depend on abstractions, inject collaborators through the constructor
-- DRY, KISS, YAGNI: and how YAGNI argues against speculative patterns
-- Low coupling, high cohesion; law of Demeter
+- Apply them, don't recite them: interviewers grade the decisions, not the acronyms
+- KISS: start with the simplest thing that works (a plain conditional before a Strategy); the most-violated principle in LLD rounds. Add complexity when simplicity breaks (a 500-line class, a new variant touching five places)
+- DRY: one place for logic that is *conceptually* the same, not just textually similar; forced sharing creates coupling
+- DRY vs KISS tradeoff: say it out loud ("keep it in `User` for now, extract a validator once it repeats 3–4 times"); naming the tension is the senior signal
+- YAGNI: build only what the requirements ask; design with extension in mind but don't build ahead. "How would you extend this?" is where future features go
+- Separation of concerns: display, input, and rules in separate classes so each change touches one class and each part is testable alone
+- Law of Demeter: no `a.getB().getC().getD()` across different types; add a method on the near object instead. Fluent chains on the same object (builders) are fine
+- SRP: one reason to change per class (content vs formatting vs storage)
+- OCP: add a variant by adding a class behind an interface, not by editing an `if/elif` chain
+- LSP: a subclass must work anywhere the parent does; a subclass throwing on an inherited method, or callers needing `isinstance` checks, means the hierarchy is wrong (move the capability into its own interface)
+- ISP: small focused interfaces; empty or throwing method stubs are the smell
+- DIP: business logic defines the interface it needs and implementations conform to it; the payoff is swapping implementations and testing with a mock. DIP is the principle, constructor injection is the technique
+- SOLID is Java-era; outside Java/C# lean on composition and functions, and don't break KISS to satisfy SOLID
+
+### `oop-concepts`: OOP Concepts
+- Concepts show in the design, not in naming them: requirement cue → interface, private fields, no type checks
+- Encapsulation: private state, changed only through methods that enforce invariants (no negative balance). Don't expose mutable internal collections; return a copy or read-only view. Default to a method over a public field
+- Abstraction: callers depend on an interface (`PaymentMethod.process()`), not the concrete class. Reach for it where there's variation or messy logic. Right level: named after what the caller needs, not `doWork()`/`handleRequest()`, and not so specific it hides nothing
+- Polymorphism: same call, each type handles itself; replaces `if type ==` and switches on enums, so a new type is a new class and the caller never changes. Tradeoff: many implementations make flow harder to trace and debug; be ready to defend explicit branches vs polymorphism
+- Inheritance: shares implementation but couples tightly (fragile base class). Fits only stable, shared implementation where subclasses don't break the parent's contract (account types sharing balance logic)
+- The classic mistake: inheritance to model behavior variation (`ElectricCar` overriding `start_engine`; where does hybrid go?). Fix: pull the varying behavior into an interface and compose it (a `Drivetrain` passed into `Car`)
+- Default to interfaces + composition; most LLD interviews need no inheritance at all
 
 ### `design-patterns`: Design Patterns
 - Use a pattern only when the problem calls for it; three or more patterns in one design usually means over-engineering
