@@ -57,3 +57,78 @@
 - Habit (RECURRING, same root as the "reasoning stays unsaid" / "vague words" habits in earlier sessions): guesses stated as facts, with no mechanism ("hash-index will eat at the memory", "the tree needs to perform string parsing on every row"). When unsure, reason out loud: "I think the issue is…, because…".
 - Rewrite (Q3): "Yes, order matters. A composite index is sorted by user ID first, then by created-at within each user, kind of like a phone book sorted by last name and then first name. So 'user X's last 30 days, newest first' is perfect for it: jump to user X and read a range that's already in order, with no sort. But a query on created-at alone can't use it. Those timestamps are scattered across every user, so it's a full scan, and I'd add a separate index on created-at if that query is hot."
 - Did well: clean, quick "I don't know"s instead of rambling, and Q1 opened with the definition.
+
+## Drill: 2026-11-22 (score 42%; Below mid 1 · Mid 5 · Senior 0 · Staff 0)
+### Questions
+**R1 (explain it) 🟦 Mid**: 1M devices writing metrics. Walk through what an LSM tree does with a single write, and what bloom filters fix on reads.
+- Follow-up: Where does an SSTable live, memory or disk, and why are writes cheap vs a B-tree?
+- You said: WAL → memtables → immutable → "bulk write to Cassandra"; reads check several places, bloom filters rule out tables (put them on memtables). Follow-up: SSTables on disk; B-tree inserts "expensive".
+- Strong answer: Every write is a sequential append to the commit log plus an insert into the in-memory memtable. When the memtable fills it's flushed as an immutable sorted SSTable on disk, and that IS Cassandra's storage: there's no separate DB behind it. B-trees update pages in place, so each write is a random disk write and sometimes a page split. The cost lands on reads: a key can be in the memtable or any SSTable, so a per-SSTable bloom filter answers "definitely not" or "maybe" from RAM, and compaction merges files to keep the count low.
+- Staff adds: read/write/space amplification; leveled (reads) vs size-tiered (writes) compaction; tombstones slow reads until compacted.
+
+**R2 (scenario) 🟦 Mid**: Order history with a composite index on (user_id, created_at). One query it serves perfectly, one it can't help, and what you'd do about the second.
+- Follow-up: Ops dashboard wants every order in the last hour across all users. Can this index help?
+- You said: Serves one user's orders in a date range; can't help "price above threshold" → covering index. Follow-up: no, user_id is sorted first so it grabs every page. No fix given.
+- Strong answer: It serves "user X's orders, newest first": seek to user X, read a pre-sorted range. It can't serve "all orders in the last hour", because of the leftmost-prefix rule: timestamps are scattered across every user. I'd add a separate created_at index, at the cost of one more write per insert. user_id alone still uses it; a price filter within one user still uses it for the user and filters rows; covering helps SELECT columns, not WHERE filters.
+- Staff adds: the created_at index is right-edge hot on inserts; at high write rates feed the dashboard via CDC to a time-series store.
+
+**R3 (tradeoff duel) 🟦 Mid**: "Restaurants near me": why can't a B-tree on lat/lng handle it, then pick geohash or quadtree and defend it.
+- Follow-up: User at a cell edge, best restaurant 50 m away in the next cell. What goes wrong and the fix?
+- You said: 1D index vs 2D data, "merge and filter in memory"; geohash because widely used in production, quadtree splits naively. Follow-up: "I'm not sure", knew neighbors are findable.
+- Re-say: skipped (given the four beats, declined to say it).
+- Strong answer: A (lat, lng) B-tree narrows latitude, then scans a strip around the whole globe. I'd pick geohash because it makes "nearby" a prefix range query on an ordinary index or Redis. Cells are fixed-size, so points across an edge share no prefix: query my cell plus its 8 neighbors and filter by real distance. If density varied wildly, I'd switch to a quadtree, which splits only dense cells.
+- Staff adds: PostGIS GiST or Redis GEOSEARCH in practice; static restaurants vs drivers moving every 4 s (cheap geohash updates win).
+
+**R4 (spot the flaw) 🟦 Mid**: Product catalog, 10M rows, heavy inserts. What's wrong?
+```
+INDEX (seller_id)
+INDEX (seller_id, created_at)
+HASH INDEX (price)          -- for "price between $20 and $50"
+B-TREE INDEX (description)  -- for LIKE '%wireless headphones%'
+INDEX (title), INDEX (price, seller_id), INDEX (created_at, title) ...
+```
+- Follow-up: Anything wrong with the first two lines?
+- You said: hash → B-tree for ranges; description → inverted index; last three slow inserts. Follow-up: first two look reasonable (missed the redundancy).
+- Strong answer: Three problems. Hash can't do a range, so B-tree. A leading wildcard can't seek a B-tree, so it's a full scan of 10M rows; use tsvector + GIN or Elasticsearch. Too many indexes: (seller_id) is a leftmost prefix of (seller_id, created_at), so drop it, and drop anything with idx_scan = 0; 9 indexes = 10 writes per insert.
+- Staff adds: Elasticsearch fed by CDC is eventually consistent (fine for a catalog); confirm what (created_at, title) serves before dropping.
+
+**R5 (estimation) ⬜ Below mid**: SELECT order_id, total WHERE user_id = X, index on user_id, 500 scattered orders. How many page reads, and how to cut it without a table or cache?
+- Follow-up: After the index finds the 500 entries, where do order_id and total come from?
+- You said: "page size of 20" → 25 pages; fix by sorting or sharding. Follow-up: extra reads to get order ID; switch to a composite including order ID.
+- Re-say: ✗ "scattered rows → ~500 pages; fix: sort users so they line up (clustering)." Missing "which means" (~50 ms uncached) and the cheap fix (covering index).
+- Strong answer: The index finds user X's entries in 3–4 pages plus a leaf or two, but the rows are scattered, so it's ~500 random heap reads, roughly 50 ms if uncached. Make it covering: (user_id) INCLUDE (order_id, total) → index-only scan, under 10 pages. Cost: bigger index, a bit more write work. Sharding spreads load but each query still does 500 reads.
+- Staff adds: clustering by key (InnoDB primary key (user_id, order_id)) puts a user's rows on adjacent pages; Postgres index-only scans need the visibility map current (vacuum).
+
+**R6 (failure mode) 🟦 Mid**: 500M-row orders table, heavy writes. A teammate runs a plain CREATE INDEX in production at noon. What happens, and how should they have done it?
+- Follow-up: What happens to inserts during the build, and what does a customer at checkout see?
+- You said: Writes slow from per-insert index overhead; asked the goal. Follow-up: DB can't process writes during the build, checkout fails. No fix.
+- Re-say: ✓ lock blocks writes → inserts queue, checkout times out → CONCURRENTLY → slower build (invalid index only if it fails).
+- Strong answer: A plain CREATE INDEX takes a lock that blocks writes (reads still work) for the whole build, tens of minutes on 500M rows. Inserts queue, connections pile up, checkout times out. Use CREATE INDEX CONCURRENTLY: no write lock, but slower (two passes), not in a transaction, and a failed build leaves an INVALID index to drop and retry. MySQL: online DDL or gh-ost.
+- Staff adds: migrations with lock_timeout (e.g. 5s) so a blocked DDL fails fast; off-peak; watch replica lag from the WAL burst.
+
+### Gap to senior
+- Covering index + page math: scattered rows = 1 random read each (500 rows ≈ 500 reads ≈ 50 ms uncached); INCLUDE selected columns → index-only scan, <10 reads; not sharding (missed in pretest AND drill)
+- Finish with the fix + cost: R2 (created_at index), R3 (8 neighbors), R6 (CONCURRENTLY) all stopped at the problem
+- Leftmost prefix both ways: (a,b) serves a and a+b, never b; (a) beside (a,b) is redundant
+- LSM is the storage engine (not a layer in front of the DB); sequential append vs B-tree random in-place page writes; bloom filters per SSTable, "definitely not / maybe"
+- Geohash: shared prefix → range query; cell + 8 neighbors for edges; quadtree when density is uneven
+- Online index builds: plain CREATE INDEX blocks writes; CONCURRENTLY doesn't, slower and may leave INVALID index
+### Staff stretch
+- Leveled vs size-tiered compaction, tombstones
+- Clustered storage by key (InnoDB PK), visibility map for index-only scans
+- PostGIS GiST vs Redis GEOSEARCH; moving vs static points
+- lock_timeout on migrations, replica lag from index builds
+- CDC lag for Elasticsearch search
+### Interview-ready lines
+- "The rows are scattered, so that's one random read per row, about 500. A covering index makes it an index-only scan: under 10."
+- "…so the fix is ___, and the cost is ___."
+- "(user_id, created_at) serves user, or user plus time, but never time alone: leftmost prefix. That also makes a standalone (user_id) index redundant."
+- "LSM writes are sequential appends to a log and a memtable; B-trees do random in-place page writes. Bloom filters let reads skip SSTables that definitely don't have the key."
+- "Geohash turns 'nearby' into a prefix range query; I search my cell plus its 8 neighbors to handle edges."
+- "Never a plain CREATE INDEX on a hot table. Use CONCURRENTLY: slower, but writes keep flowing."
+### Delivery
+- Habit: stopping at the problem without the fix ("I'm not sure what the fix is"; R6 ended at "the database isn't processing new writes"). Shift from earlier sessions: consequence now comes through, the fix drops.
+- Rewrite (R6): "A plain CREATE INDEX locks the table against writes for the whole build, and on 500 million rows that's tens of minutes. So inserts queue up, connections pile up behind them, and a customer at checkout gets a timeout. The fix is CREATE INDEX CONCURRENTLY, which builds without blocking writes. The cost is that it's slower, and if it fails you're left with an invalid index to drop and retry."
+- Did well: signposted R4 flaw by flaw; bottom line first in R2/R3.
+- Frame reminders: on
+- Re-say: 1/3, 1 skipped (fix + cost beat; "which means" in estimation)
