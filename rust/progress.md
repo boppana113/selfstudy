@@ -13,8 +13,10 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
 | Slug | Status | Pretest | Built | Last drill | Drill score | Next review | Key gaps |
 |---|---|---|---|---|---|---|---|
+| basics | built | — | 2026-11-22 | — | — | — | read-a-compiler-error check not done |
 
 ## Build log
 
 | Date | Stage | What got built | Errors hit | Next |
 |---|---|---|---|---|
+| 2026-11-22 | basics | tokencost CLI: args, parse, match, cost fn, 1 test (test written by Claude) | ParseIntError panic via unwrap | stage 1 pretest |
