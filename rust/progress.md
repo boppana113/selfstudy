@@ -13,7 +13,7 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
 | Slug | Status | Pretest | Built | Last drill | Drill score | Next review | Key gaps |
 |---|---|---|---|---|---|---|---|
-| basics | built | — | 2026-11-22 | — | — | — | read-a-compiler-error check not done |
+| basics | mastered | — | 2026-11-22 | — | — | — | — |
 
 ## Build log
 
