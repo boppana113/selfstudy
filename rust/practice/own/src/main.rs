@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Clone)]
 struct ApiKey {
     id: u32,
@@ -94,21 +96,44 @@ impl Config {
         for k in &self.api_keys {
             // k: &ApiKey
             if k.key == key {
-                // return Some(*k);
+                // return Some(*k); // ← E0507 (cannot move out of *k, which is behind a shared reference
                 // return Some(k.clone()); // this is a clone method
                 return Some(k); // lend out the key: k is already a &ApiKey
-            } // ← E0507 (cannot move out of *k, which is behind a shared reference
+            }
         }
         None
     }
 }
+
+fn part5() {
+    let mut by_id: HashMap<u32, ApiKey> = HashMap::new();
+    let k = ApiKey::new(3, "sk-live-abc", 1);
+    by_id.insert(k.id, k); // k moves into the map. `k` is unusable now (E0382 if you try)
+    // println!(k.id); //# this will throw a compile error
+
+    let found: Option<&ApiKey> = by_id.get(&3); // get lends: Option<&V>
+    if let Some(k) = by_id.get_mut(&3) {
+        k.assign_user(2);
+    } //get_mut lends mutably
+}
+
+fn longest_key<'a>(a: &'a str, b: &'a str) -> &'a str {
+    if a.len() > b.len() { a } else { b }
+} // E0106 (missing lifetime specifier) 
+
+fn make_key() -> String {
+    let s = String::from("sk");
+    s
+} // E0106, and `'static` won't save it
+
 fn main() {
     // part1();
     // part2();
     // part3();
-    let mut k = ApiKey::new(1, "sk-abc", 42);
+    // let mut k = ApiKey::new(1, "sk-abc", 42);
 
-    println!("k.id = {}", k.id);
-    let j = k.into_key();
-    println!("k = {}", j);
+    // println!("k.id = {}", k.id);
+    // let j = k.into_key();
+    // println!("k = {}", j);
+    // part5();
 }

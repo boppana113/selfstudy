@@ -5,3 +5,6 @@
 lld/sources/
 system-design/sources/
 *.pdf
+
+# Rust build output
+target/
