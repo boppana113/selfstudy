@@ -20,7 +20,7 @@ Arguments: `$ARGUMENTS`
 
 ## 2. Read Pydantic's version first (10–15 min)
 
-For the stage's "Read first" file, fetch it from `pydantic/pydantic-ai-gateway` with `gh api repos/pydantic/pydantic-ai-gateway/contents/<path> --jq .content | base64 -d`. Walk through the relevant part with the user (they know Python, not necessarily TypeScript). Then ask: "What will Rust make you decide here that TypeScript didn't?" (ownership of the body, which errors are possible, what crosses threads). The repo is AGPL: read it for the design, never copy code.
+For the stage's "Read first" file, fetch it from `pydantic/pydantic-ai-gateway` with `gh api repos/pydantic/pydantic-ai-gateway/contents/<path> --jq .content | base64 -d`. The user does not know TypeScript and should not have to read it: translate the relevant part into a short Python/Pydantic-style sketch (class + field types, one example of the data, e.g. a TOML snippet), plus 2–3 plain-English notes on design choices. Show the TS only if they ask. Then ask: "What will Rust make you decide here that TypeScript didn't?" (ownership of the body, which errors are possible, what crosses threads). The repo is AGPL: read it for the design, never copy code.
 
 ## 3. Build in small steps
 

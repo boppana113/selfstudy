@@ -21,6 +21,7 @@ Your Dec 2025 attempt (Book ch. 1–4) has mostly faded, so begin with stage 0 b
 
 ## Rules
 
+- **No TypeScript needed.** "Read first" files get translated in `/rs-build` into a Pydantic-style sketch plus example data. You read the translation, not the TS.
 - **Build it by hand before using the library.** Your own error enum before `thiserror`, your own LRU before the `lru` crate, your own middleware chain before `tower`. The library comes afterwards, as a comparison.
 - **The compiler error is part of the lesson.** Each stage names the error you're meant to run into. Fix it yourself before asking.
 - **Mastery check (all 4) before moving to the next stage:**
