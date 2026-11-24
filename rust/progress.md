@@ -2,7 +2,7 @@
 
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
-**Gateway repo:** `~/llm-gateway` (created in stage 1, step 0)
+**Gateway repo:** `~/llm-gateway` → https://github.com/boppana113/llm-gateway (public, created 2026-11-23)
 **Current stage:** `ownership`
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
 
