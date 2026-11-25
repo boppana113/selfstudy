@@ -2,6 +2,21 @@
 
 Personal study workspace, driven by Claude Code skills.
 
+## Current focus (from 2026-11-25 until MAANG loops, ~Mar 2027)
+
+**DSA sprint.** Interviews start in the new year and coding rounds are the gate. DSA 4 weekdays + Saturday, LLM 1 weekday, system design 1 session/week (Sunday). **Rust and LLD are paused.** See [dsa/README.md](dsa/README.md).
+
+## DSA / coding interviews (current priority)
+
+LeetCode-style practice run like a real interview, with a debrief after every session. See [dsa/README.md](dsa/README.md).
+
+| Skill | Use |
+|---|---|
+| `/dsa pretest` | One-time placement: pattern sprint + 3 timed problems → writes the narrated plan |
+| `/dsa [stage]` | Daily session: LeetCode sync, re-solve, 2 problems, debrief |
+| `/dsa mock [meta\|google\|amazon]` | Company-format mock with a hiring scorecard |
+| `/dsa review` | Cold re-solves only |
+
 ## System design (ML / AI engineering track)
 
 Interview prep built around Hello Interview. See [system-design/README.md](system-design/README.md) for the study loop and schedule.

@@ -2,6 +2,8 @@
 
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
+**⏸ PAUSED 2026-11-25** for the DSA interview sprint (see `dsa/README.md`). Resume at the current stage below after MAANG loops (~Mar 2027). Weekend Space cards can continue.
+
 **Gateway repo:** `~/llm-gateway` → https://github.com/boppana113/llm-gateway (public, created 2026-11-23)
 **Current stage:** `enums-errors`: pretested 2026-11-25 → work through `journey/02-enums-errors.md` → `/rs-build`. (Ownership open items: 60s explain, clippy dead-code.)
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
