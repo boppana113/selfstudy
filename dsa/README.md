@@ -19,6 +19,7 @@ Rust and LLD are **paused** until loops are done (their progress files say where
 - Dictate your thinking: ⌘D in the Claude panel, send it unedited.
 - In a problem: `hint`, `time?`, `done`.
 - **Live interviewer:** while you code, `dsa/watch.sh` lets Claude see each save of your practice file and interject like an interviewer watching your screen: mostly silent, a short question when you're heading the wrong way, a bug will sink you, or you've gone quiet for 3 min. Turn on File → Auto Save so you don't have to keep pressing ⌘S. Add `offline` to the `/dsa` arguments to switch it off.
+- **Voice:** the interviewer's lines are spoken aloud through macOS `say` (use headphones in public), and you answer by dictation. Add `mute` to switch it off.
 
 ## Files
 - `curriculum.md`: stages, problems per stage, readiness bar, company mock formats

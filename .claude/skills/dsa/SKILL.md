@@ -1,7 +1,7 @@
 ---
 name: dsa
 description: LeetCode-style coding interview practice for MAANG loops. Runs a diagnostic pretest, daily interview-style sessions (vague prompts, approach-before-code, hand-trace, hints that cost, follow-up twists), company-format mocks with a scorecard, cold re-solves, and a written debrief after every session that keeps a narrated plan up to date. Use when the user says "dsa", "leetcode", "coding practice", "coding mock", "dsa pretest", or "dsa review".
-argument-hint: "[pretest | mock [meta|google|amazon|generic] | review | <stage-slug>]  (omit for: sync, due re-solves, then the current stage)"
+argument-hint: "[pretest | mock [meta|google|amazon|generic] | review | <stage-slug>] [offline] [mute]  (omit for: sync, due re-solves, then the current stage)"
 ---
 
 # DSA Coding Interview Practice
@@ -35,6 +35,7 @@ These are the point of the skill. Apply all of them unless a mode says otherwise
    - **`IDLE`:** "Talk me through where you are." If they're stuck, this counts as hint level 1 only if you add content.
    - **The planned interruption (item 5)** fits now.
    Otherwise reply with nothing visible (no "looks good"). At most one interjection per ~3 minutes. Count the bugs you saw but didn't flag, and see if they catch them in the trace. Note each interjection for the debrief.
+4c. **Voice (on by default; off if the arguments include `mute`).** Speak every in-character line aloud with `say -v Samantha -r 185 "<line>" &` (Bash, backgrounded so it doesn't block), and show the same line in chat. This applies to the prompt, answers to clarifying questions, hints, interjections, the interruption, twists, and "5 minutes left". Don't speak debriefs, scores, code, or post-problem teaching. Spoken lines must be plain sentences: no symbols, no code, and say "n squared", "big O of n log n", not "O(n^2)". Escape double quotes in the line. If a new line starts while one is still playing, run `killall say 2>/dev/null` first.
 5. **Interrupt once.** Partway through coding (after their 1st or 2nd message about code), ask one short "why" about a choice: "Why a set and not a sorted list?", "What's that loop's invariant?". They answer and keep going.
 6. **Hand-trace before tests.** On `done`, read the file. Ask them to trace it by hand on a small example you pick, ideally one that hits an edge case. Then write tests in the scratchpad (not in `dsa/`), import their file, and run them. Report: passes, fails with the failing input, and any bug they caught during the trace vs. bugs the tests caught.
 7. **Hint ladder.** On `hint` or 2+ turns stuck: level 1 = a question ("what do you know about the input order?"), level 2 = name the property ("it's sorted"), level 3 = name the pattern, level 4 = walk through the key step. One level per request. Record the highest level given.
