@@ -3,7 +3,7 @@
 Updated by `/dsa`. Safe to edit by hand.
 
 **LeetCode:** `boppana113` (public profile) · `python3 dsa/lc_sync.py` → `lc-snapshot.md`
-**Baseline (2026-11-25):** 114 solved (79E / 35M / 0H). The API only shows the last 19 (all July 2026); the other ~95 are undated. No solves since Jul 22 (4-month gap). Topics nearly untouched: real graph problems (~0; the 1 Union-Find tag is Longest Consecutive Sequence), sliding window (3), greedy (4), backtracking (5), tries (1); 0 hards. Heap: ~2 (LeetCode's tag counts leave heap out). July run: 19 problems in 19 days, mostly mediums, NeetCode order, stopped Jul 22. Background: Georgia Tech grad algorithms (C): DP, graphs, and divide-and-conquer theory, no timed coding.
+**Baseline (2026-11-25):** 114 solved (79E / 35M / 0H). The API only shows the last 19 (all July 2026); the other ~95 are undated. No solves since Jul 22 (4-month gap). Topics nearly untouched: real graph problems (~0; the 1 Union-Find tag is Longest Consecutive Sequence), sliding window (3), greedy (4), backtracking (5), tries (1); 0 hards. Heap: ~2 (LeetCode's tag counts leave heap out). July run: 19 problems in 19 days, mostly mediums, NeetCode order, stopped Jul 22. Self-report: July mediums ~20 min each, but often needed the solution after getting stuck, so treat July solves as "seen", not "solved unaided". Likely gap: finding the approach, more than coding it. Background: Georgia Tech grad algorithms (C): DP, graphs, and divide-and-conquer theory, no timed coding.
 **Interview window:** warm-ups Jan 2027, MAANG Feb–Mar 2027.
 **Current week:** pretest pending → then week 1 (starts after the pretest)
 **Current stage:** —
