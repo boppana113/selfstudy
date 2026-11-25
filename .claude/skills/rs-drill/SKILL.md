@@ -35,6 +35,7 @@ After each answer in drill mode: ask one follow-up on the weakest part, grade it
 2. Gaps, most important first, each with one interview-ready sentence.
 3. Pretest only: what to watch for while building this stage (3 items).
 4. Mastery: if they pass items 2–4 of the curriculum mastery check this session and the stage is `built`, set it to `mastered` and move **Current stage** to the next stage.
+5. Pretest only: tell the user the stage order is **pretest → narrated journey → build**, and that the journey file comes next (see Save step 4).
 
 Next review: < 50% → next weekend; 50–74% → +7 days; 75–89% → +14 days, doubling after that (max 60); ≥ 90% → +21 days, doubling after that (max 90). (Weekend-scaled version of `/sd-drill`.) Round each date to the nearest Saturday or Sunday.
 
@@ -43,7 +44,8 @@ Next review: < 50% → next weekend; 50–74% → +7 days; 75–89% → +14 days
 1. Append to `rust/notes/<slug>.md`: a dated section with each question, a 1-line summary of their answer, a 3–5 sentence strong answer, and the gaps.
 2. Update the stage row in `rust/progress.md` (status, pretest or drill score, last drill, next review, key gaps of 3–6 words each).
 3. Add cards to `rust/cards/<slug>.md` for each 🟨/❌ (same format as system-design cards; snippets go in ``` blocks in the Q). Run `python3 rust/space_sync.py <slug>` and report the count.
-4. Commit and push the selfstudy repo.
+4. Pretest only: write the narrated journey `rust/journey/NN-<slug>.md` now if it doesn't exist, aimed at the gaps just found (list them at the top with the Part that covers each, like `01-ownership.md`). Follow the journey format in `/rs-build` step 1.4. The user works through it before `/rs-build`.
+5. Commit and push the selfstudy repo.
 
 ## Rules
 - Use today's date from the environment.
