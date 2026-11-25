@@ -4,6 +4,7 @@
     "rust/practice/guess/Cargo.toml",
     "rust/practice/own/Cargo.toml",
     "rust/practice/tokencost/Cargo.toml",
-    "rust/practice/rustlings/Cargo.toml"
+    "rust/practice/rustlings/Cargo.toml",
+    "/Users/sriramboppana/llm-gateway/Cargo.toml"
   ]
 }
