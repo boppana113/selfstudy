@@ -5,7 +5,7 @@ your voice, speechSynthesis for the interviewer's. This server holds the API
 key and runs the interviewer, so the key never reaches the browser.
 
 API key protection:
-  - read from the macOS Keychain at startup (store it with set-key.sh); never
+  - from the macOS Keychain (set-key.sh) or your `ant auth login` profile; never
     written to disk, env vars, logs, or the transcript
   - the server binds to 127.0.0.1 only
   - every API call needs a random per-run token (in the URL fragment, sent as
@@ -80,14 +80,14 @@ The brief:
 
 
 def read_key():
+    """A key stored with set-key.sh, or None to use the SDK's own credential chain
+    (env vars, then your `ant auth login` profile in ~/.config/anthropic, which is
+    OAuth: short-lived tokens, owner-only file)."""
     r = subprocess.run(
         ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
         capture_output=True, text=True,
     )
-    key = r.stdout.strip()
-    if r.returncode or not key:
-        sys.exit("No API key in the Keychain. Run dsa/call/set-key.sh first (once).")
-    return key
+    return r.stdout.strip() or None
 
 
 class Interview:
@@ -95,7 +95,7 @@ class Interview:
         self.args = args
         self.brief = json.loads(BRIEF.read_text())
         self.file = ROOT / self.brief["practice_file"]
-        self.client = anthropic.Anthropic(api_key=key)
+        self.client = anthropic.Anthropic(api_key=key) if key else anthropic.Anthropic()
         self.system = SYSTEM.format(brief=json.dumps(self.brief, indent=2))
         self.history = []
         self.lock = threading.Lock()  # one interviewer turn at a time
@@ -316,7 +316,13 @@ def main():
     args = p.parse_args()
     if not BRIEF.exists():
         sys.exit("No brief at dsa/call/.brief.json. Start with `/dsa call` in Claude Code, which writes it.")
-    iv = Interview(args, read_key())
+    key = read_key()
+    iv = Interview(args, key)
+    try:
+        iv.client.models.retrieve(args.model)  # free check that credentials work
+    except anthropic.AuthenticationError:
+        sys.exit("No working Anthropic credentials. Run `ant auth login`, or store a key with dsa/call/set-key.sh.")
+    print(f"Credentials: {'Keychain key' if key else 'Anthropic profile (ant auth login)'}")
     token = secrets.token_urlsafe(24)
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(iv, token, args.port))
     url = f"http://localhost:{args.port}/#t={token}"
