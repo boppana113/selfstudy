@@ -3,7 +3,7 @@
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
 **Gateway repo:** `~/llm-gateway` → https://github.com/boppana113/llm-gateway (public, created 2026-11-23)
-**Current stage:** `enums-errors` (moved on 2026-11-24 before ownership mastery; open: 60s explain, clippy dead-code)
+**Current stage:** `enums-errors`: pretested 2026-11-25 → work through `journey/02-enums-errors.md` → `/rs-build`. (Ownership open items: 60s explain, clippy dead-code.)
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
 
 **Status values:** `pretested` → `building` → `built` (mastery items 1 done) → `mastered` (all 4 mastery items) 
@@ -15,6 +15,7 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 |---|---|---|---|---|---|---|---|
 | basics | mastered | — | 2026-11-22 | — | — | — | — |
 | ownership | built | 29% (2026-11-22) | — | 2026-11-24 | 67% | 2026-11-29 | error codes E0499/E0507/E0515; String vs &str = ownership; clone cost per request; clippy dead-code |
+| enums-errors | pretested | 21% (2026-11-25) | — | — | — | — | E0004 exhaustive match; ? calls From (E0277); unwrap/expect panic, ? propagates; thiserror vs anyhow; serde from_str returns Result |
 
 ## Build log
 
