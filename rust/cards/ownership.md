@@ -81,3 +81,26 @@ Why: Non-lexical lifetimes: borrows end at last use, not at the closing brace. M
 Q: Why does `ApiKey` store `providers: Vec<String>` and `project_id: u32` instead of `ProviderConfig` / `Project`?
 A: `Config` already owns every provider and project. The key points at them by name or id, like a foreign key.
 Why: Owned copies would duplicate data. `&ProviderConfig` inside `Config` would be a self-referential struct (stage 5).
+
+## Exclusive borrows
+Q: Does this compile?
+```rust
+let mut keys = vec![ApiKey { id: 1, key: String::from("sk-a") }];
+let a = &mut keys[0];
+let b = &mut keys[0];
+a.id = 2;
+b.id = 3;
+```
+A: No. E0499, cannot borrow `keys` as mutable more than once at a time.
+Why: `&mut` is exclusive. If two existed, one could replace or free data the other still points at (aliasing); across threads that's a data race. Fix: reuse `a`, or finish with `a` before taking `b`.
+
+## Borrowing parameters
+Q: `fn log_key(k: ApiKey)` only reads `k.id`. After `log_key(k)`, the caller uses `k.key`. Which error, and what's the right signature?
+A: E0382, borrow of moved value. Use `fn log_key(k: &ApiKey)` and call `log_key(&k)`.
+Why: By-value parameters take ownership and drop it on return. The `&` goes on the type, not the name. E0507 is a different error: moving out of a borrow.
+
+## Clone vs restructure
+Q: You hold `key: &ApiKey` from `cfg` and need `cfg.record_usage(&mut self, ..)`. Why not just `.clone()` the key on the request path?
+A: Clone copies the key String plus the providers Vec and its Strings: several heap allocations per request. Copy just the `Copy` fields you need (`key.id`) or reorder.
+Why: Cost scales with request rate. Real fix: keep mutable usage out of read-only Config (separate store, stage 7). Clone is fine in tests and startup code.
+Flip: When is cloning to satisfy the borrow checker fine?

@@ -38,3 +38,34 @@
 - Gap: Drop frees the heap.
 
 **Watch while building:** E0502 when you mutate the config while holding a key ref · `&str` params vs owned `String` struct fields · writing `find_key` returning `Option<&ApiKey>` and hitting the lifetime it implies.
+
+## 2026-11-24 · Drill · 60% (✅ 1 · 🟨 4 · ❌ 0 · round 6 skipped)
+
+**R1. Predict: two `&mut keys[0]` (`a`, `b`) both used.** 🟨
+- Said: won't compile, only one mutable borrow; reason "race condition"; fix: one borrow.
+- Strong: E0499, cannot borrow `keys` as mutable more than once. `&mut` is an exclusive borrow: if two existed, one could replace or free data (e.g. reassign the String) while the other still points at it. Single-threaded this is an aliasing bug; across threads it's a data race, which is why the same rule makes Rust data-race-free. Fix: reuse `a`, or end `a`'s last use before taking `b`.
+- Gap: error code; aliasing vs race.
+
+**R2. Predict: `log_key(k: ApiKey)` then use `k.key`.** 🟨
+- Said: k moved into log_key and dropped; fix: borrow, wrote `log_key(&k: ApiKey)`.
+- Strong: E0382, borrow of moved value. Passing by value moves ownership into the function, which drops it on return. A read-only function should take `k: &ApiKey` (the `&` goes on the type) and the caller passes `&k`.
+- Gap: E0382 vs E0507 confusion; `&` on the type, not the name.
+
+**R3. Explain: String vs &str.** 🟨
+- Said: String to write/append, &str to read. Follow-up: fields are String because Config must own data after the TOML is gone (correct).
+- Strong: `String` owns a heap buffer; `&str` is a borrowed (ptr, len) view into bytes someone else owns (a String, a slice, or a literal). The line is owned vs borrowed, not mutable vs read-only. Struct fields own (`String`) so they outlive the source text; read-only parameters take `&str` because `&String` derefs to it for free.
+- Gap: framed as mutability, not ownership.
+
+**R4. Predict: `fn label(k: &ApiKey) -> &str { let s = format!(..); &s }`.** ✅
+- Said: s dropped at return, &s dangles; fix: return String.
+- Strong: E0515, cannot return reference to local variable. A function can return borrows only of its inputs; anything it creates must be returned owned.
+- Gap: didn't know E0515 (new code).
+
+**R5. Design: clone the key vs restructure to avoid E0502 before `record_usage(&mut self)`.** 🟨
+- Said: A (clone), simpler. Follow-up: clone copies to heap, doesn't scale with many keys.
+- Strong: clone copies one ApiKey (key String + providers Vec of Strings) = several allocations per request, so cost scales with request rate, not key count. On the hot path, copy the `Copy` fields you need (`key.id` is 4 bytes) or reorder. Real fix: usage doesn't belong in read-only Config; keep it in a separate store so recording never needs `&mut cfg` (stage 7).
+- Gap: picked by simplicity, not cost; per-request vs per-key.
+
+**R6. Code it: `keys_for_project(keys: &[ApiKey], project_id: u32) -> Vec<&ApiKey>`.** Skipped (user asked to assume pass; not recorded as passed). Mastery item 4 still open.
+
+**Gaps:** error-code recall (E0499, E0382 vs E0507, E0515) · owned-vs-borrowed framing for String/&str · clone cost reasoning · `&T` param syntax.

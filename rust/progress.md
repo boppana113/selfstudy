@@ -14,7 +14,7 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 | Slug | Status | Pretest | Built | Last drill | Drill score | Next review | Key gaps |
 |---|---|---|---|---|---|---|---|
 | basics | mastered | — | 2026-11-22 | — | — | — | — |
-| ownership | building | 29% (2026-11-22) | — | — | — | — | E0502 shared-vs-mut borrow; lifetimes/E0106 unknown; returning refs vs owned; String = owned heap buffer |
+| ownership | building | 29% (2026-11-22) | — | 2026-11-24 | 60% | 2026-11-29 | error codes E0499/E0507/E0515; String vs &str = ownership; clone cost per request; code-it skipped |
 
 ## Build log
 
