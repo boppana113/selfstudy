@@ -45,3 +45,39 @@ Why: `Option` covers "not found" without null. The borrow ties the result's life
 Q: What happens to a `String` when its owner goes out of scope?
 A: `drop` runs at the closing brace and frees the heap buffer. The stack part (ptr, len, cap) goes away too.
 Why: This is RAII: deterministic cleanup with no GC and no manual free.
+
+## Partial moves
+Q: Does this compile?
+```rust
+let cfg = ProviderConfig { name: "anthropic".to_string(), /* ... */ };
+let names = vec![cfg.name];
+let all = vec![cfg];
+```
+A: No. E0382, use of partially moved value: `vec![cfg.name]` moved the `name` String out, so `cfg` can't be moved as a whole.
+Why: The struct now has a hole. Other fields are still usable. Fix: `cfg.name.clone()`. A `u32` field like `cfg.id` is fine because it's Copy.
+
+## Moving out of a borrow
+Q: Why doesn't this compile?
+```rust
+fn find_key(&self, key: &str) -> Option<ApiKey> {
+    self.api_keys.iter().find(|k| k.key == key).map(|k| *k)
+}
+```
+A: E0507, cannot move out of a shared reference. `*k` tries to take the `ApiKey` out of a config we only borrowed.
+Why: The Vec would be left with a hole and the owner would later drop it again. Through `&` you can only read; return `&ApiKey`, or clone.
+
+## Borrow scope
+Q: Does this compile, and why?
+```rust
+let mut cfg = Config::load("config.example.toml");
+let k = cfg.find_key("sk-gw-test-abc123").unwrap();
+assert_eq!(k.id, 0);
+cfg.api_keys.push(new_key);
+```
+A: Yes. The borrow held by `k` ends at its last use (the assert), so the push is allowed.
+Why: Non-lexical lifetimes: borrows end at last use, not at the closing brace. Move the assert after the push and it's E0502.
+
+## Ownership design
+Q: Why does `ApiKey` store `providers: Vec<String>` and `project_id: u32` instead of `ProviderConfig` / `Project`?
+A: `Config` already owns every provider and project. The key points at them by name or id, like a foreign key.
+Why: Owned copies would duplicate data. `&ProviderConfig` inside `Config` would be a self-referential struct (stage 5).

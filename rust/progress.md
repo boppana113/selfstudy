@@ -14,10 +14,11 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 | Slug | Status | Pretest | Built | Last drill | Drill score | Next review | Key gaps |
 |---|---|---|---|---|---|---|---|
 | basics | mastered | — | 2026-11-22 | — | — | — | — |
-| ownership | pretested | 29% (2026-11-22) | — | — | — | — | E0502 shared-vs-mut borrow; lifetimes/E0106 unknown; returning refs vs owned; String = owned heap buffer |
+| ownership | building | 29% (2026-11-22) | — | — | — | — | E0502 shared-vs-mut borrow; lifetimes/E0106 unknown; returning refs vs owned; String = owned heap buffer |
 
 ## Build log
 
 | Date | Stage | What got built | Errors hit | Next |
 |---|---|---|---|---|
 | 2026-11-22 | basics | tokencost CLI: args, parse, match, cost fn, 1 test (test written by Claude) | ParseIntError panic via unwrap | stage 1 pretest |
+| 2026-11-24 | ownership | gateway steps 1–3: config types, TOML load, find_key, 4 tests | E0063, E0382 (partial move), E0507, E0502 | step 4: project_for, allows, Debug redaction, E0106 |
