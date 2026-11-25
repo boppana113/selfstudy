@@ -22,3 +22,4 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 |---|---|---|---|---|
 | 2026-11-22 | basics | tokencost CLI: args, parse, match, cost fn, 1 test (test written by Claude) | ParseIntError panic via unwrap | stage 1 pretest |
 | 2026-11-24 | ownership | gateway steps 1–3: config types, TOML load, find_key, 4 tests | E0063, E0382 (partial move), E0507, E0502 | step 4: project_for, allows, Debug redaction, E0106 |
+| 2026-11-24 | ownership | steps 4–5: project_for, allows, redacted Debug, find_in, `check` CLI (main written by Claude, then let-else) | E0106, E0425 (scope), E0423/E0603 (`::`, privacy) | clippy dead-code decision; retype main; `/rs-drill` |

@@ -19,3 +19,10 @@
 **Open:** `Some` wrapping (thought `Some` wraps both cases); `.` vs `::` for associated fns.
 
 **Next:** Step 4 (`project_for`, `allows`, Debug redaction, E0106), then Step 5 (`main check`).
+
+## Later same day · steps 4–5
+- `project_for`, `allows` (user agreed it belongs on `ApiKey`), hand-written redacting `Debug`, `find_in<'a>` (E0106; correctly put `'a` on `keys`).
+- First answer on why `project_for` has no E0106 was "it's safe"; corrected to elision: `&self` → output borrows from self.
+- Missed: `...` vs `…` in redaction test; wrong filename in test (read `panicked at` line).
+- `main`: E0423 (`.` vs `::`), E0603 (privacy), E0425 (`key` out of scope after match arm). User was tired; Claude wrote `main` (nested match → let-else). **Retype `main` next session.**
+- Open: clippy dead-code warnings for fields later stages use.
