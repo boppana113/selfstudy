@@ -39,7 +39,7 @@
 
 **Watch while building:** E0502 when you mutate the config while holding a key ref · `&str` params vs owned `String` struct fields · writing `find_key` returning `Option<&ApiKey>` and hitting the lifetime it implies.
 
-## 2026-11-24 · Drill · 60% (✅ 1 · 🟨 4 · ❌ 0 · round 6 skipped)
+## 2026-11-24 · Drill · 67% (✅ 2 · 🟨 4 · ❌ 0)
 
 **R1. Predict: two `&mut keys[0]` (`a`, `b`) both used.** 🟨
 - Said: won't compile, only one mutable borrow; reason "race condition"; fix: one borrow.
@@ -66,6 +66,7 @@
 - Strong: clone copies one ApiKey (key String + providers Vec of Strings) = several allocations per request, so cost scales with request rate, not key count. On the hot path, copy the `Copy` fields you need (`key.id` is 4 bytes) or reorder. Real fix: usage doesn't belong in read-only Config; keep it in a separate store so recording never needs `&mut cfg` (stage 7).
 - Gap: picked by simplicity, not cost; per-request vs per-key.
 
-**R6. Code it: `keys_for_project(keys: &[ApiKey], project_id: u32) -> Vec<&ApiKey>`.** Skipped (user asked to assume pass; not recorded as passed). Mastery item 4 still open.
+**R6. Code it: `keys_for_project(keys: &[ApiKey], project_id: u32) -> Vec<&ApiKey>`.** ✅ self-reported (marked finished by user; code not reviewed).
+- Strong: `keys.iter().filter(|k| k.project_id == project_id).collect()`. No annotation needed: one input reference, so elision ties the returned `&ApiKey`s to `keys`.
 
 **Gaps:** error-code recall (E0499, E0382 vs E0507, E0515) · owned-vs-borrowed framing for String/&str · clone cost reasoning · `&T` param syntax.
