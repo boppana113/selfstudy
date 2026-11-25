@@ -3,7 +3,7 @@
 Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 
 **Gateway repo:** `~/llm-gateway` → https://github.com/boppana113/llm-gateway (public, created 2026-11-23)
-**Current stage:** `ownership`
+**Current stage:** `enums-errors` (moved on 2026-11-24 before ownership mastery; open: 60s explain, clippy dead-code)
 **Prior attempt:** Rust Book ch. 1–4 in Dec 2025 (`~/task-vault`), stopped at ownership.
 
 **Status values:** `pretested` → `building` → `built` (mastery items 1 done) → `mastered` (all 4 mastery items) 
@@ -14,7 +14,7 @@ Updated by `/rs-build` and `/rs-drill`. Safe to edit by hand.
 | Slug | Status | Pretest | Built | Last drill | Drill score | Next review | Key gaps |
 |---|---|---|---|---|---|---|---|
 | basics | mastered | — | 2026-11-22 | — | — | — | — |
-| ownership | building | 29% (2026-11-22) | — | 2026-11-24 | 67% | 2026-11-29 | error codes E0499/E0507/E0515; String vs &str = ownership; clone cost per request; clippy dead-code |
+| ownership | built | 29% (2026-11-22) | — | 2026-11-24 | 67% | 2026-11-29 | error codes E0499/E0507/E0515; String vs &str = ownership; clone cost per request; clippy dead-code |
 
 ## Build log
 
