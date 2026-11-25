@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DSA mock call</title>
+<style>
+  :root { color-scheme: light dark; --bg: #fafaf9; --fg: #1c1917; --muted: #78716c; --line: #e7e5e4; --accent: #2563eb; --live: #16a34a; --warn: #d97706; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1c1917; --fg: #f5f5f4; --muted: #a8a29e; --line: #44403c; --accent: #60a5fa; --live: #4ade80; --warn: #fbbf24; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 20px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  #clock { font: 600 22px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  #clock.warn { color: var(--warn); }
+  .row { display: flex; gap: 10px; align-items: center; margin: 20px 0; flex-wrap: wrap; }
+  button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  button:disabled { opacity: .4; cursor: default; }
+  #state { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  #dot.listening { background: var(--live); }
+  #dot.thinking { background: var(--warn); }
+  #dot.speaking { background: var(--accent); }
+  #live { min-height: 3em; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
+  #log { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); }
+  .msg b { font-size: 13px; color: var(--muted); font-weight: 600; display: block; }
+  .msg.iv { border-left: 3px solid var(--accent); }
+  .msg.sys { border: none; color: var(--muted); font-size: 14px; padding: 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; }
+  select { font: inherit; padding: 6px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); max-width: 240px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">DSA mock call</h1>
+    <span id="clock">00:00</span>
+  </header>
+
+  <div class="row">
+    <button id="startBtn" class="primary">Start call</button>
+    <button id="muteBtn" disabled>Mute mic</button>
+    <button id="endBtn" disabled>End call</button>
+    <span id="state"><span id="dot"></span><span id="stateText">not started</span></span>
+  </div>
+  <div class="row">
+    <label class="hint">Interviewer voice <select id="voiceSel"></select></label>
+  </div>
+  <p class="hint">Use headphones if you can. Talk normally; a pause of about 1.5 seconds ends your turn. Talking over the interviewer stops it. Code in <code id="file"></code> and save often (turn on File → Auto Save).</p>
+
+  <div id="live">You: …</div>
+  <div id="log"></div>
+</main>
+
+<script>
+"use strict";
+const TOKEN = new URLSearchParams(location.hash.slice(1)).get("t") || "";
+const END_SILENCE_MS = 1500, CODE_THROTTLE_MS = 30000, IDLE_MS = 180000;
+const $ = (id) => document.getElementById(id);
+
+let budgetMin = 25, t0 = 0, running = false, muted = false;
+let rec = null, recActive = false;
+let finalText = "", interimText = "", lastResultAt = 0, pendingCarry = "";
+let speakingWords = new Set(), uttIsEcho = null;
+let turnQueue = [], turnBusy = false, abortCtl = null, spokeThisTurn = false;
+let lastActivity = Date.now(), idleSent = false, warned = new Set();
+let lastCodeHash = null, codeDirty = false, lastCodeSent = 0;
+let voice = null;
+
+// ---------- server calls (the API key stays on the server) ----------
+async function api(path, body) {
+  const r = await fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "X-Call-Token": TOKEN, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${path}: ${r.status}`);
+  return r.json();
+}
+
+// ---------- UI ----------
+function setState(s, text) { $("dot").className = s; $("stateText").textContent = text || s; }
+function addMsg(who, text, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + (cls || "");
+  if (who) { const b = document.createElement("b"); b.textContent = who; d.appendChild(b); }
+  d.appendChild(document.createTextNode(text));
+  $("log").prepend(d);
+  return d;
+}
+function elapsed() { return Math.floor((Date.now() - t0) / 1000); }
+function tickClock() {
+  if (!running) return;
+  const s = elapsed();
+  $("clock").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  $("clock").classList.toggle("warn", s >= (budgetMin - 5) * 60);
+  for (const [mark, msg] of [[(budgetMin - 5) * 60, "5 minutes left in the time budget."], [budgetMin * 60, "Time budget is up."]]) {
+    if (s >= mark && !warned.has(mark)) { warned.add(mark); enqueue("event", msg); }
+  }
+  if (!idleSent && Date.now() - lastActivity >= IDLE_MS) { idleSent = true; enqueue("event", "3 minutes with no speech and no code changes."); }
+}
+
+// ---------- voice out ----------
+function pickVoices() {
+  const vs = speechSynthesis.getVoices().filter(v => v.lang && v.lang.startsWith("en"));
+  const pref = ["Ava (Premium)", "Ava (Enhanced)", "Samantha (Enhanced)", "Google US English", "Samantha", "Ava"];
+  vs.sort((a, b) => (pref.indexOf(a.name) + 1 || 99) - (pref.indexOf(b.name) + 1 || 99));
+  $("voiceSel").innerHTML = "";
+  vs.forEach((v, i) => { const o = document.createElement("option"); o.value = i; o.textContent = `${v.name} (${v.lang})`; $("voiceSel").appendChild(o); });
+  voice = vs[0] || null;
+  $("voiceSel").onchange = () => { voice = vs[+$("voiceSel").value]; };
+}
+speechSynthesis.onvoiceschanged = pickVoices;
+pickVoices();
+
+const words = (s) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+function speak(sentence) {
+  words(sentence).forEach(w => speakingWords.add(w));
+  const u = new SpeechSynthesisUtterance(sentence);
+  if (voice) u.voice = voice;
+  u.rate = 1.05;
+  u.onstart = () => setState("speaking", "interviewer speaking");
+  u.onend = () => { if (!speechSynthesis.pending && !speechSynthesis.speaking) afterSpeech(); };
+  speechSynthesis.speak(u);
+  spokeThisTurn = true;
+}
+function afterSpeech() {
+  setTimeout(() => { if (!speechSynthesis.speaking) speakingWords = new Set(); }, 1500);
+  if (running) setState(turnBusy ? "thinking" : "listening", turnBusy ? "interviewer thinking" : "listening");
+}
+function isSpeaking() { return speechSynthesis.speaking || speechSynthesis.pending; }
+
+// Talking over the interviewer: stop its voice and the reply in flight.
+function bargeIn() {
+  if (!isSpeaking() && !turnBusy) return;
+  speechSynthesis.cancel();
+  if (abortCtl) abortCtl.abort();
+  speakingWords = new Set();
+}
+
+// Our own voice coming back through the speakers looks like this.
+function looksLikeEcho(text) {
+  const h = words(text);
+  if (!h.length || !speakingWords.size) return false;
+  return h.filter(w => speakingWords.has(w)).length / h.length >= 0.6;
+}
+
+// ---------- voice in (Chrome speech recognition) ----------
+function startRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { addMsg(null, "This browser has no speech recognition. Use Google Chrome.", "sys"); return false; }
+  rec = new SR();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = "en-US";
+  rec.onresult = (e) => {
+    if (muted) return;
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) finalText += " " + r[0].transcript; else interim += r[0].transcript;
+    }
+    interimText = interim;
+    const now = (finalText + " " + interimText).trim();
+    if (!now) return;
+    lastResultAt = Date.now();
+    lastActivity = Date.now(); idleSent = false;
+    if (uttIsEcho === null && words(now).length >= 3) {
+      uttIsEcho = isSpeaking() && looksLikeEcho(now);
+      if (!uttIsEcho) bargeIn();
+    }
+    $("live").textContent = "You: " + now + (uttIsEcho ? "  (echo, ignored)" : "");
+  };
+  rec.onerror = (e) => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      addMsg(null, "Microphone blocked. Allow it for this page (address bar → site settings) and reload.", "sys");
+      running = false;
+    }
+  };
+  rec.onend = () => { recActive = false; if (running) setTimeout(() => { try { rec.start(); recActive = true; } catch (_) {} }, 150); };
+  rec.start(); recActive = true;
+  return true;
+}
+
+// End of your turn: quiet for END_SILENCE_MS after the last words.
+setInterval(() => {
+  const text = (finalText + " " + interimText).trim();
+  if (!running || !text || Date.now() - lastResultAt < END_SILENCE_MS) return;
+  const echo = uttIsEcho === true || (uttIsEcho === null && isSpeaking() && looksLikeEcho(text));
+  finalText = ""; interimText = ""; uttIsEcho = null;
+  try { rec.abort(); } catch (_) {}  // fresh session, so late finals don't repeat this text
+  $("live").textContent = "You: …";
+  if (!echo) { addMsg("You", text); enqueue("speech", text); }
+}, 200);
+
+// ---------- watching your code ----------
+setInterval(async () => {
+  if (!running) return;
+  try {
+    const c = await api("/api/code");
+    if (lastCodeHash !== null && c.hash !== lastCodeHash) { codeDirty = true; lastActivity = Date.now(); idleSent = false; }
+    lastCodeHash = c.hash;
+    if (codeDirty && Date.now() - lastCodeSent >= CODE_THROTTLE_MS && !turnBusy) {
+      codeDirty = false; lastCodeSent = Date.now();
+      enqueue("code", "");
+    }
+  } catch (_) {}
+}, 2000);
+
+// ---------- interviewer turns ----------
+function enqueue(kind, text) {
+  if (kind === "speech") {
+    if (pendingCarry) { text = pendingCarry + " " + text; pendingCarry = ""; }
+    // merge with speech already waiting
+    const waiting = turnQueue.find(t => t.kind === "speech");
+    if (waiting) { waiting.text += " " + text; return pump(); }
+  }
+  if (kind === "code" && turnQueue.some(t => t.kind === "code")) return pump();
+  turnQueue.push({ kind, text });
+  pump();
+}
+
+async function pump() {
+  if (turnBusy || !turnQueue.length || !running) return;
+  // speech goes first; it's what the interviewer most needs to answer
+  const i = turnQueue.findIndex(t => t.kind === "speech");
+  const turn = turnQueue.splice(i >= 0 ? i : 0, 1)[0];
+  turnBusy = true; spokeThisTurn = false;
+  if (!isSpeaking()) setState("thinking", "interviewer thinking");
+  abortCtl = new AbortController();
+  let buf = "", said = "", ended = false, aborted = false, bubble = null;
+  try {
+    const r = await fetch("/api/turn", {
+      method: "POST", signal: abortCtl.signal,
+      headers: { "X-Call-Token": TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify(turn),
+    });
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let lineBuf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      lineBuf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = lineBuf.indexOf("\n")) >= 0) {
+        const ev = JSON.parse(lineBuf.slice(0, nl)); lineBuf = lineBuf.slice(nl + 1);
+        if (ev.t === "text") {
+          buf += ev.v; said += ev.v;
+          if (!bubble) bubble = addMsg("Interviewer", "", "iv");
+          bubble.lastChild.textContent = said;
+          let m;
+          while ((m = buf.match(/^(.+?[.?!])(\s+|$)/s))) { speak(m[1].trim()); buf = buf.slice(m[0].length); }
+        } else if (ev.t === "done") {
+          if (buf.trim()) speak(buf.trim());
+          ended = ev.end;
+        } else if (ev.t === "error") {
+          addMsg(null, ev.v, "sys");
+        }
+      }
+    }
+  } catch (err) {
+    aborted = err.name === "AbortError";
+    if (!aborted) addMsg(null, "Connection to the local server failed: " + err.message, "sys");
+  }
+  if (aborted && !said && turn.kind === "speech") pendingCarry = turn.text;  // resend with your next words
+  if (aborted && bubble) bubble.lastChild.textContent = said + " …(interrupted)";
+  turnBusy = false; abortCtl = null;
+  if (!isSpeaking() && running) setState("listening", "listening");
+  if (ended) {
+    const wait = setInterval(() => { if (!isSpeaking()) { clearInterval(wait); endCall("interviewer closed the call"); } }, 300);
+  }
+  pump();
+}
+
+// ---------- call lifecycle ----------
+$("startBtn").onclick = async () => {
+  try {
+    const info = await api("/api/start", {});
+    budgetMin = info.budget_min; $("title").textContent = info.title; $("file").textContent = info.file;
+  } catch (e) { addMsg(null, "Can't reach the local server (is run.sh still running?). " + e.message, "sys"); return; }
+  running = true; t0 = Date.now(); lastActivity = Date.now();
+  if (!startRecognition()) { running = false; return; }
+  $("startBtn").disabled = true; $("muteBtn").disabled = false; $("endBtn").disabled = false;
+  setInterval(tickClock, 500);
+  setState("thinking", "connecting");
+  enqueue("start", "");
+};
+$("muteBtn").onclick = () => {
+  muted = !muted; $("muteBtn").textContent = muted ? "Unmute mic" : "Mute mic";
+  finalText = ""; interimText = "";
+  setState(muted ? "" : "listening", muted ? "muted" : "listening");
+};
+$("endBtn").onclick = () => endCall("ended from the page");
+
+async function endCall(why) {
+  if (!running) return;
+  running = false;
+  speechSynthesis.cancel(); if (abortCtl) abortCtl.abort();
+  try { rec && rec.abort(); } catch (_) {}
+  $("muteBtn").disabled = true; $("endBtn").disabled = true;
+  setState("", "call ended");
+  try {
+    const r = await api("/api/end", { why });
+    addMsg(null, `Call ended. Transcript saved to ${r.transcript}. Back in Claude Code, say "done with the call".`, "sys");
+  } catch (_) { addMsg(null, "Call ended (couldn't reach the server to save the footer).", "sys"); }
+}
+
+if (!TOKEN) addMsg(null, "Missing access token. Open the link printed by run.sh.", "sys");
+</script>
+</body>
+</html>

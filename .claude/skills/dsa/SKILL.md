@@ -1,7 +1,7 @@
 ---
 name: dsa
 description: LeetCode-style coding interview practice for MAANG loops. Runs a diagnostic pretest, daily interview-style sessions (vague prompts, approach-before-code, hand-trace, hints that cost, follow-up twists), company-format mocks with a scorecard, cold re-solves, and a written debrief after every session that keeps a narrated plan up to date. Use when the user says "dsa", "leetcode", "coding practice", "coding mock", "dsa pretest", or "dsa review".
-argument-hint: "[pretest | mock [meta|google|amazon|generic] | review | <stage-slug>] [offline] [mute]  (omit for: sync, due re-solves, then the current stage)"
+argument-hint: "[pretest | mock [meta|google|amazon|generic] | call [company|stage-slug] | review | <stage-slug>] [offline] [mute]  (omit for: sync, due re-solves, then the current stage)"
 ---
 
 # DSA Coding Interview Practice
@@ -17,6 +17,7 @@ Arguments: `$ARGUMENTS`
 3. Pick the mode:
    - **`pretest`** (or `dsa/plan.md` doesn't exist): section 3.
    - **`mock [company]`**: section 4.
+   - **`call [company|stage-slug]`**: a live voice call with the browser interviewer (section 4b).
    - **`review`**: re-solves only (due rows in the Re-solve queue, max 3).
    - **No argument / a stage slug**: a session (section 2).
 4. Say in one line what today is: mode, stage, and number of problems. Then remind the user once: **dictate your thinking** (⌘D in the Claude panel, send it unedited), **turn off Copilot/autocomplete** for the session, and they can type `hint`, `time?`, or `done`.
@@ -83,6 +84,22 @@ Goal: place them, then write the plan. Wrong answers are expected. Grade each pr
    - **Testing**: hand-trace quality, edge cases found by them vs. by the tests
    Then an overall verdict (Strong Hire / Hire / Lean Hire / Lean No / No Hire) **for an L4/E4–L5/E5 bar**, and the single change that would move it up a level.
 4. Add a row to the Mocks table in `progress.md`. Debrief (section 5).
+
+## 4b. Live call (`call`, ~30–45 min per problem)
+
+A real-time voice interviewer runs in Chrome (`dsa/call/`: `server.py` holds the API key, read from the macOS Keychain; `call.html` does the mic, captions, and voice). You don't run the interview in this mode; you prepare it and debrief it.
+
+1. **First time only:** if `security find-generic-password -s dsa-call-anthropic >/dev/null 2>&1` fails, tell the user to run `dsa/call/set-key.sh` in their own terminal (hidden prompt; never ask for the key in chat), ideally with a dedicated key and a monthly spend limit on the console. Never read, print, or echo the key.
+2. **Pick one problem** as in a mock (unseen, from a `learning`+ stage, weighted to the weakest; a stage slug in the arguments narrows it; a company sets the format and `budget_min`: meta 20, google 45, amazon 35, generic 30).
+3. **Write the brief** to `dsa/call/.brief.json` (gitignored; the user shouldn't open it):
+   `{"slug", "title" (neutral, not the LeetCode title), "format", "budget_min", "practice_file": "dsa/practice/<date>-<slug>.py", "spoken_prompt" (1–3 sentences, vague, ≤1 small example), "details_on_request" (constraints, sizes, duplicates, empty input, output format: revealed only if asked), "optimal" (approach + complexity), "acceptable_suboptimal", "hint_ladder" (4 levels: question → property → pattern → key step), "why_question" (the planned interruption), "trace_example" (small input hitting an edge case), "twist" (one changed constraint), "pitfalls" (bugs to watch for)}`.
+   Verify `optimal` and `trace_example` by running a solution in the scratchpad first.
+4. Create the practice file with only `# <spoken prompt>`. Tell the user: run `dsa/call/run.sh` in their own terminal (add `--model claude-sonnet-5-5` for faster replies), click **Start call** in Chrome, wear headphones if possible, Auto Save on, Copilot off. Then wait.
+5. **On "done with the call":** read the newest `dsa/calls/*.md` transcript. It has every line with timestamps, interviewer silences on code saves, interruptions, and the final code. Then:
+   - Run your tests against the final code in the scratchpad (import it from the practice file).
+   - Score it like a mock (section 4.3: 4 axes + verdict), using quoted transcript moments as evidence. Also note what only a voice call shows: long silences, rambling vs. terse, and whether they spoke the approach + complexity before coding.
+   - Log the row (Mode `call`), add a Mocks-table row, and debrief (section 5).
+   - If the interviewer misbehaved (talked too much, revealed hints, misheard badly), say so in one line and fix the prompt in `dsa/call/server.py` if it's a pattern.
 
 ## 5. Debrief (end of every session; the user reads this)
 

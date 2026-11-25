@@ -19,6 +19,7 @@ Rust and LLD are **paused** until loops are done (their progress files say where
 - Dictate your thinking: ⌘D in the Claude panel, send it unedited.
 - In a problem: `hint`, `time?`, `done`.
 - **Live interviewer:** while you code, `dsa/watch.sh` lets Claude see each save of your practice file and interject like an interviewer watching your screen: mostly silent, a short question when you're heading the wrong way, a bug will sink you, or you've gone quiet for 3 min. Turn on File → Auto Save so you don't have to keep pressing ⌘S. Add `offline` to the `/dsa` arguments to switch it off.
+- **Live call (`/dsa call`):** a real-time voice interviewer in Chrome. Hands-free, you can interrupt it, it watches your code on save, and it writes a transcript that `/dsa` debriefs from. One-time setup: run `dsa/call/set-key.sh` in your own terminal to put an Anthropic API key in the macOS Keychain. Use a dedicated key with a monthly spend limit. The key stays on a local server (`127.0.0.1`, token-protected) and never reaches the browser. Each call: `/dsa call` → `dsa/call/run.sh` → Start call. Chrome's speech recognition sends your audio to Google.
 - **Voice:** the interviewer's lines are spoken aloud through macOS `say` (use headphones in public), and you answer by dictation. Add `mute` to switch it off.
 
 ## Files

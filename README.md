@@ -15,6 +15,7 @@ LeetCode-style practice run like a real interview, with a debrief after every se
 | `/dsa pretest` | One-time placement: pattern sprint + 3 timed problems → writes the narrated plan |
 | `/dsa [stage]` | Daily session: LeetCode sync, re-solve, 2 problems, debrief |
 | `/dsa mock [meta\|google\|amazon]` | Company-format mock with a hiring scorecard |
+| `/dsa call [company]` | Live voice interview in Chrome (hands-free, interruptible), debriefed from the transcript |
 | `/dsa review` | Cold re-solves only |
 
 ## System design (ML / AI engineering track)
