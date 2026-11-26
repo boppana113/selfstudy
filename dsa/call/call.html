@@ -63,6 +63,7 @@ const $ = (id) => document.getElementById(id);
 let budgetMin = 25, t0 = 0, running = false, muted = false;
 let rec = null, recActive = false;
 let finalText = "", interimText = "", lastResultAt = 0, pendingCarry = "";
+let skipBefore = 0, resultsSeen = 0;  // results already sent, within the current recognition session
 let speakingWords = new Set(), uttIsEcho = null;
 let turnQueue = [], turnBusy = false, abortCtl = null, spokeThisTurn = false;
 let lastActivity = Date.now(), idleSent = false, warned = new Set();
@@ -158,7 +159,8 @@ function startRecognition() {
   rec.onresult = (e) => {
     if (muted) return;
     let interim = "";
-    for (let i = e.resultIndex; i < e.results.length; i++) {
+    resultsSeen = e.results.length;
+    for (let i = Math.max(e.resultIndex, skipBefore); i < e.results.length; i++) {
       const r = e.results[i];
       if (r.isFinal) finalText += " " + r[0].transcript; else interim += r[0].transcript;
     }
@@ -179,7 +181,10 @@ function startRecognition() {
       running = false;
     }
   };
-  rec.onend = () => { recActive = false; if (running) setTimeout(() => { try { rec.start(); recActive = true; } catch (_) {} }, 150); };
+  rec.onend = () => {  // Chrome ends sessions on its own now and then: restart, indices reset
+    recActive = false; skipBefore = 0; resultsSeen = 0;
+    if (running) setTimeout(() => { try { rec.start(); recActive = true; } catch (_) {} }, 100);
+  };
   rec.start(); recActive = true;
   return true;
 }
@@ -190,7 +195,7 @@ setInterval(() => {
   if (!running || !text || Date.now() - lastResultAt < END_SILENCE_MS) return;
   const echo = uttIsEcho === true || (uttIsEcho === null && isSpeaking() && looksLikeEcho(text));
   finalText = ""; interimText = ""; uttIsEcho = null;
-  try { rec.abort(); } catch (_) {}  // fresh session, so late finals don't repeat this text
+  skipBefore = resultsSeen;  // keep listening; just ignore results already sent (no restart gap)
   $("live").textContent = "You: …";
   if (!echo) { addMsg("You", text); enqueue("speech", text); }
 }, 200);
