@@ -190,7 +190,9 @@ class Interview:
             except (BrokenPipeError, ConnectionResetError):
                 aborted = True
             except anthropic.APIError as e:
-                self.log(f"_[{self.ts()}] API error: {type(e).__name__}_\n\n")
+                detail = getattr(e, "message", "") or str(e)
+                self.log(f"_[{self.ts()}] API error: {type(e).__name__}: {detail[:300]}_\n\n")
+                print(f"API error: {type(e).__name__}: {detail[:300]}")
                 try:
                     send({"t": "error", "v": f"API error: {type(e).__name__}"})
                 except (BrokenPipeError, ConnectionResetError):
@@ -212,14 +214,16 @@ class Interview:
             self.usage["out"] += u.output_tokens or 0
             self.usage["cache_read"] += getattr(u, "cache_read_input_tokens", 0) or 0
             self.usage["cache_write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
-            self.history += [msgs[-1], {"role": "assistant", "content": final.content}]
+            # Store the user turn without its cache mark: only the newest message carries one
+            # (the API allows 4 cache breakpoints per request).
+            self.history += [{"role": "user", "content": content}, {"role": "assistant", "content": final.content}]
             if final.stop_reason == "refusal":
                 spoken = "Let's move on."
                 send({"t": "text", "v": spoken})
             silent = spoken.startswith("SILENT")
             if silent:
-                if kind == "code":
-                    self.log(f"_[{self.ts()}] code saved ({len(self.code_now().splitlines())} lines), interviewer silent_\n\n")
+                what = f"code saved ({len(self.code_now().splitlines())} lines)" if kind == "code" else kind
+                self.log(f"_[{self.ts()}] {what}: interviewer silent_\n\n")
                 send({"t": "silent"})
             else:
                 self.log(f"**[{self.ts()}] Interviewer:** {spoken}\n\n")

@@ -62,8 +62,11 @@ const $ = (id) => document.getElementById(id);
 
 let budgetMin = 25, t0 = 0, running = false, muted = false;
 let rec = null, recActive = false;
-let finalText = "", interimText = "", lastResultAt = 0, pendingCarry = "";
-let skipBefore = 0, resultsSeen = 0;  // results already sent, within the current recognition session
+let lastResultAt = 0, pendingCarry = "";
+// Chrome's results for the current recognition session, as words. sentCount = words already
+// sent to the interviewer; heldText = unsent words from a session Chrome ended on its own.
+let sessionWords = [], sentCount = 0, heldText = "";
+const currentText = () => (heldText + " " + sessionWords.slice(sentCount).join(" ")).trim();
 let speakingWords = new Set(), uttIsEcho = null;
 let turnQueue = [], turnBusy = false, abortCtl = null, spokeThisTurn = false;
 let lastActivity = Date.now(), idleSent = false, warned = new Set();
@@ -158,14 +161,9 @@ function startRecognition() {
   rec.lang = "en-US";
   rec.onresult = (e) => {
     if (muted) return;
-    let interim = "";
-    resultsSeen = e.results.length;
-    for (let i = Math.max(e.resultIndex, skipBefore); i < e.results.length; i++) {
-      const r = e.results[i];
-      if (r.isFinal) finalText += " " + r[0].transcript; else interim += r[0].transcript;
-    }
-    interimText = interim;
-    const now = (finalText + " " + interimText).trim();
+    const all = Array.from(e.results).map(r => r[0].transcript).join(" ");
+    sessionWords = all.trim().split(/\s+/).filter(Boolean);
+    const now = currentText();
     if (!now) return;
     lastResultAt = Date.now();
     lastActivity = Date.now(); idleSent = false;
@@ -182,7 +180,8 @@ function startRecognition() {
     }
   };
   rec.onend = () => {  // Chrome ends sessions on its own now and then: restart, indices reset
-    recActive = false; skipBefore = 0; resultsSeen = 0;
+    recActive = false;
+    heldText = currentText(); sessionWords = []; sentCount = 0;
     if (running) setTimeout(() => { try { rec.start(); recActive = true; } catch (_) {} }, 100);
   };
   rec.start(); recActive = true;
@@ -191,11 +190,10 @@ function startRecognition() {
 
 // End of your turn: quiet for END_SILENCE_MS after the last words.
 setInterval(() => {
-  const text = (finalText + " " + interimText).trim();
+  const text = currentText();
   if (!running || !text || Date.now() - lastResultAt < END_SILENCE_MS) return;
   const echo = uttIsEcho === true || (uttIsEcho === null && isSpeaking() && looksLikeEcho(text));
-  finalText = ""; interimText = ""; uttIsEcho = null;
-  skipBefore = resultsSeen;  // keep listening; just ignore results already sent (no restart gap)
+  sentCount = sessionWords.length; heldText = ""; uttIsEcho = null;  // keep listening, skip what's sent
   $("live").textContent = "You: …";
   if (!echo) { addMsg("You", text); enqueue("speech", text); }
 }, 200);
@@ -294,7 +292,7 @@ $("startBtn").onclick = async () => {
 };
 $("muteBtn").onclick = () => {
   muted = !muted; $("muteBtn").textContent = muted ? "Unmute mic" : "Mute mic";
-  finalText = ""; interimText = "";
+  sentCount = sessionWords.length; heldText = "";
   setState(muted ? "" : "listening", muted ? "muted" : "listening");
 };
 $("endBtn").onclick = () => endCall("ended from the page");
